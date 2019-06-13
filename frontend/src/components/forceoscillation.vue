@@ -191,6 +191,7 @@ export default {
             this.AddPhotogate()
             this.AddPlate()
             this.AddRod()
+            this.Addstand()
             this.Addlight()
             //X red Z blue Y green	
             this.AddAxis();
@@ -264,6 +265,12 @@ export default {
                 floorMat.needsUpdate = true;
             })
             return floorMat
+        },
+        Addstand(){
+            var loadermodel = new OBJLoader().load("../../static/models/stand.obj",(obj)=>{
+                console.log("hi")
+                this.scene.add(obj)
+            })
         },
         Add180()
         {
