@@ -188,7 +188,7 @@ export default {
             this.AddCylinder();
             this.AddHelix(6.5*Math.PI,-Math.PI/2-this.theta1);
             this.AddPole()
-            this.AddPhotogate()
+        
             this.AddPlate()
             this.AddRod()
             this.Addstand()
@@ -268,7 +268,8 @@ export default {
         },
         Addstand(){
             var loadermodel = new OBJLoader().load("../../static/models/stand.obj",(obj)=>{
-                console.log("hi")
+                obj.scale.set(50,50,50)
+                obj.position.set(35,-210,19)
                 this.scene.add(obj)
             })
         },
@@ -386,30 +387,6 @@ export default {
             //this.polegroup.rotation.z = Math.PI/2
             this.scene.add(this.polegroup)
         },
-        AddPhotogate(){
-            this.gategroup = new THREE.Group()
-            var streched = new THREE.MeshPhongMaterial({color:0x010101})
-
-            var gate1 = new THREE.CubeGeometry(10,8,20)
-            var photogate1 = new THREE.Mesh(gate1,streched)
-            photogate1.rotation.x = Math.PI/2
-            photogate1.position.set(0,100,10)
-            this.gategroup.add(photogate1)
-
-            var gate2 = new THREE.CubeGeometry(10,8,20)
-            var photogate2 = new THREE.Mesh(gate2,streched)
-            photogate2.rotation.x = Math.PI/2
-            photogate2.position.set(0,100,-10)
-            this.gategroup.add(photogate2)
-
-            var gate3 = new THREE.CubeGeometry(10,15,5)
-            var photogate3 = new THREE.Mesh(gate3,streched)
-            photogate3.rotation.x = Math.PI/2
-            photogate3.position.set(0,107,0)
-            this.gategroup.add(photogate3)
-
-            this.scene.add(this.gategroup)
-        },
         AddPlate()
         {
 
@@ -471,7 +448,6 @@ export default {
             bulblight[4].position.set(200,0,50)
             bulblight[5] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
             bulblight[5].position.set(300,-90,0)
-            //bulbLight.castShadow = true; 
             this.scene.add(bulblight[0])
             this.scene.add(bulblight[1])
             this.scene.add(bulblight[2])
@@ -641,9 +617,6 @@ export default {
             group2.add(this.controls,'phi0',0,Math.PI).name("初相位")
             group2.add(this.controls,"powerv",0,1).name("电机频率")
             group2.open()
-            for( var i=0;i<group1.__controllers.length;i++){
-                console.log(group1.__controllers[i])
-            }
         },
         //speedFar 最大的圆自转速度 speedMiddle 最小圆转速 omegaH 公转速度 omega2 自转速度
         Topage(path)

@@ -24,7 +24,7 @@
 			<div slot="header" class="clearfix">
 				<span>最新新闻</span>
 			</div>
-			<div v-for="i in fivedata" :key="i['title']">
+			<div v-for="(i,index) in fivedata" :key="index">
 				<template>
 					<el-alert
 						:title="i['release_time']+' '+i['title']"
