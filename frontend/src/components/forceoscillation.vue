@@ -269,7 +269,7 @@ export default {
         Addstand(){
             var loadermodel = new OBJLoader().load("../../static/models/stand.obj",(obj)=>{
                 obj.scale.set(50,50,50)
-                obj.position.set(35,-210,19)
+                obj.position.set(40,-160,-8)
                 this.scene.add(obj)
             })
         },
