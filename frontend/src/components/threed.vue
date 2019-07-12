@@ -74,6 +74,16 @@
               <router-link to="/forceoscillation"><img src="../../static/images/dwsy.png" class="image"/></router-link>
             </el-card>
           </el-col>
+
+          <el-col :span='8'>
+            <el-card>
+              <div slot="header" class="clearfix">
+                <el-button style="float: right; padding: 3px 0" type="danger" @click="Topage('/spectrometer')">分光计</el-button>
+              </div>
+              <router-link to="/forceoscillation"><img src="../../static/images/dwsy.png" class="image"/></router-link>
+            </el-card>
+          </el-col>
+
         </el-row>
       </div>
     </el-container>

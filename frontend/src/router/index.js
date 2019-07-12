@@ -19,6 +19,7 @@ import other from '@/components/other'
 import manage from '@/components/manage'
 import forceoscillation from '@/components/forceoscillation'
 import points from '@/components/points'
+import spectrometer from '@/components/spectrometer'
 Vue.use(Router)
 
 const router =  new Router({
@@ -117,6 +118,11 @@ const router =  new Router({
       path:'/points',
       name:'points',
       component:points
+    },
+    {
+      path:'/spectrometer',
+      name:'spectrometer',
+      component: spectrometer
     }
   ]
 })
