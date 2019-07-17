@@ -107,7 +107,7 @@
 import * as THREE from 'three'
 import dat from 'dat.gui'
 import {MTLLoader, OBJLoader} from 'three-obj-mtl-loader'
-
+import GLTFLoader from 'three-gltf-loader';
 
 export default {
 
@@ -188,7 +188,7 @@ export default {
             this.AddCylinder();
             this.AddHelix(6.5*Math.PI,-Math.PI/2-this.theta1);
             this.AddPole()
-        
+            this.AddTransparentPlate()
             this.AddPlate()
             this.AddRod()
             this.Addstand()
@@ -387,9 +387,15 @@ export default {
             //this.polegroup.rotation.z = Math.PI/2
             this.scene.add(this.polegroup)
         },
+        AddTransparentPlate(){
+            var loader = new GLTFLoader();
+            loader.load('../../static/models/transparent.gltf',obj=>{
+                this.scene.add(obj);
+            })
+
+        },
         AddPlate()
         {
-
             this.plategroup = new THREE.Group()
             var platemtl = new MTLLoader()
             platemtl.load('../../static/models/plate1.mtl',(mtl)=>{
@@ -402,8 +408,6 @@ export default {
                 this.plategroup.add(obj)
                 })
             })
-        
-            
             this.platepolegroup =  new THREE.Group()
             var cylinder1=new THREE.CylinderGeometry(30, 30,20,40)
             var cylinder2=new THREE.CylinderGeometry(15, 15,40,40)
@@ -493,12 +497,9 @@ export default {
                 if(this.controls['damping']==true){
                     bt = Math.pow(Math.E,-this.damping*this.t)
                 }
-                var thetabuf = this.theta1*bt*Math.cos(this.wf*this.t)+this.theta2*Math.cos(this.powerw*this.t+Math.PI/2)-this.thetaend
-                this.thetaend= this.theta1*bt*Math.cos(this.wf*this.t)+this.theta2*Math.cos(this.powerw*this.t+Math.PI/2)
-                //this.thetaend= this.thetaend*2
-                //var thetabuf=this.theta1*bt*(this.damping*Math.cos(this.wf*this.t)+this.wf*Math.sin(this.wf*this.t))+this.theta2*this.powerw*Math.sin(this.powerw*this.t+this.phase)
-                //thetabuf/=5
-                //this.thetaend+=thetabuf
+                var Phi=Math.atan(-2*this.damping*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
+                var thetabuf = this.theta1*bt*Math.cos(this.wf*this.t)+this.theta2*Math.cos(this.powerw*this.t+Phi)-this.thetaend
+                this.thetaend += thetabuf
                 //table
                 if(this.t-this.count*this.T<0.1 && this.t-this.count*this.T>0 && this.controls['power']==false){
                     this.tableData.push({id:this.count,A:parseInt(this.thetaend*180/Math.PI)})
@@ -615,7 +616,7 @@ export default {
             group1.open()
             group2.add(this.controls,'power').name("是否添加策动力").listen()
             group2.add(this.controls,'phi0',0,Math.PI).name("初相位")
-            group2.add(this.controls,"powerv",0,1).name("电机频率")
+            group2.add(this.controls,"powerv",this.wf/2/Math.PI-0.1,this.wf/2/Math.PI+0.1).name("电机频率")
             group2.open()
         },
         //speedFar 最大的圆自转速度 speedMiddle 最小圆转速 omegaH 公转速度 omega2 自转速度
