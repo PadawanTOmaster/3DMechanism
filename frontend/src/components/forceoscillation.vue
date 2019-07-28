@@ -108,7 +108,7 @@ import * as THREE from 'three'
 import dat from 'dat.gui'
 import {MTLLoader, OBJLoader} from 'three-obj-mtl-loader'
 import GLTFLoader from 'three-gltf-loader';
-
+import {Lensflare , LensflareElement} from '@zosma/three-lensflare-ts'
 export default {
 
     data(){
@@ -139,6 +139,11 @@ export default {
             gategroup:null,
             plategroup:null,
             platepolegroup:null,
+            light1:null,
+            light1mesh:null,
+            light2:null,
+            light2mesh:null,
+            group_trans:null,
             rodmesh:null,
             lasttheta:0,
             T:0,
@@ -189,6 +194,7 @@ export default {
             this.AddHelix(6.5*Math.PI,-Math.PI/2-this.theta1);
             this.AddPole()
             this.AddTransparentPlate()
+            this.AddFlask()
             this.AddPlate()
             this.AddRod()
             this.Addstand()
@@ -388,11 +394,40 @@ export default {
             this.scene.add(this.polegroup)
         },
         AddTransparentPlate(){
-            var loader = new GLTFLoader();
-            loader.load('../../static/models/transparent.gltf',obj=>{
-                this.scene.add(obj);
-            })
+            this.group_trans = new THREE.Group();
+            var obj = new THREE.CylinderGeometry(60,60,2,40,40);
+            var material = new THREE.MeshBasicMaterial({color:'white',transparent:true,opacity:0.3});
+            var mesh = new THREE.Mesh(obj,material);
+            mesh.rotation.x = Math.PI/2;
+            mesh.position.set(300,-80,35);//透明盘结束
+         
+            var box = new THREE.BoxGeometry( 14, 2 ,2 );
+            this.light1 = new THREE.PointLight( 0x000000, 2, 25);
+            this.light1mesh = new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0xffffff} ) )
+            this.light1.add( this.light1mesh );
+            this.light2 = new THREE.PointLight( 0x000000, 2, 25);
+            this.light2mesh =  new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0xffffff } ) ) 
+            this.light2.add(this.light2mesh);
+            this.light1.position.set(250,-80,35);
+            this.light2.position.set(350,-80,35);//长条灯
 
+            this.group_trans.add(mesh);
+            this.group_trans.add(this.light1);
+            this.group_trans.add(this.light2); 
+            this.scene.add(this.group_trans);
+        },
+        AddFlask(){
+            var geo = new THREE.BoxGeometry(50,70,50);
+            var mater = new THREE.MeshPhongMaterial(({color:0x010101}));
+            var mesh = new THREE.Mesh(geo,mater);
+            mesh.position.set(292,-150,110)
+            this.scene.add(mesh);
+        },
+        ChangeLightColor(c1,c2){
+            this.light1.color.set(c1);
+            this.light1mesh.material.color.set(c2);
+            this.light2.color.set(c1);
+            this.light2mesh.material.color.set(c2);
         },
         AddPlate()
         {
