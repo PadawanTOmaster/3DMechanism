@@ -399,24 +399,26 @@ export default {
             var material = new THREE.MeshBasicMaterial({color:'white',transparent:true,opacity:0.3});
             var mesh = new THREE.Mesh(obj,material);
             mesh.rotation.x = Math.PI/2;
-            mesh.position.set(300,-80,35);//透明盘结束
          
             var box = new THREE.BoxGeometry( 14, 2 ,2 );
             this.light1 = new THREE.PointLight( 0x000000, 2, 25);
-            this.light1mesh = new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0xffffff} ) )
+            this.light1mesh = new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242} ) )
             this.light1.add( this.light1mesh );
             this.light2 = new THREE.PointLight( 0x000000, 2, 25);
-            this.light2mesh =  new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0xffffff } ) ) 
+            this.light2mesh =  new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242 } ) ) 
             this.light2.add(this.light2mesh);
-            this.light1.position.set(250,-80,35);
-            this.light2.position.set(350,-80,35);//长条灯
+            this.light1.position.set(-50,0,0);
+            this.light2.position.set(50,0,0);//长条灯
 
             this.group_trans.add(mesh);
             this.group_trans.add(this.light1);
             this.group_trans.add(this.light2); 
+            this.group_trans.position.set(300,-80,35);//透明盘结束
             this.scene.add(this.group_trans);
+            
         },
         AddFlask(){
+            //添加闪光灯
             var geo = new THREE.BoxGeometry(50,70,50);
             var mater = new THREE.MeshPhongMaterial(({color:0x010101}));
             var mesh = new THREE.Mesh(geo,mater);
@@ -424,6 +426,8 @@ export default {
             this.scene.add(mesh);
         },
         ChangeLightColor(c1,c2){
+            //不亮 this.ChangeLightColor(0x000000, 0x424242);
+            //亮  this.ChangeLightColor(0xc4342d, 0xc4342d);
             this.light1.color.set(c1);
             this.light1mesh.material.color.set(c2);
             this.light2.color.set(c1);
@@ -534,7 +538,12 @@ export default {
                 }
                 var Phi=Math.atan(-2*this.damping*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
                 var thetabuf = this.theta1*bt*Math.cos(this.wf*this.t)+this.theta2*Math.cos(this.powerw*this.t+Phi)-this.thetaend
+                if(this.thetaend*(this.thetaend+thetabuf)<0){
+                    this.ChangeLightColor(0xc4342d, 0xc4342d);
+                }
+                else this.ChangeLightColor(0x000000, 0x424242);
                 this.thetaend += thetabuf
+                
                 //table
                 if(this.t-this.count*this.T<0.1 && this.t-this.count*this.T>0 && this.controls['power']==false){
                     this.tableData.push({id:this.count,A:parseInt(this.thetaend*180/Math.PI)})
@@ -574,10 +583,12 @@ export default {
                 var ymid=(yleft+yright)/2
                 var newrodtheta=-Math.atan((yright-yleft)/(xright-xleft))
                 var newlefttheta=Math.acos(xleft/Math.sqrt(xleft*xleft+yleft*yleft))
-
-                this.rodmesh.rotateZ(this.rodtheta-newrodtheta)
-                this.rodtheta=newrodtheta
                 this.polegroup.rotateZ(this.thetaleft-newlefttheta)
+                this.rodmesh.rotateZ(this.rodtheta-newrodtheta)
+                
+                this.rodtheta=newrodtheta
+                this.group_trans.rotateZ(dt * this.powerw)
+                
                 this.rodmesh.position.set(xmid,ymid,60)
                 this.thetaleft=newlefttheta
 
