@@ -2,25 +2,17 @@
 <div>
     <el-row >
         <div style="top:15px;left:15px;z-index:1000;position:absolute;opacity:0.8;">
-            <el-button type="success" round @click="Topage('/threed')">返回</el-button>
+            <el-button type="success" round @click="toPage('/threed')">返回</el-button>
             <!-- <el-button @click="show1=!show1" type="success" round>看图</el-button>
             <el-button @click="show2=!show2" type="success" round>看讲解</el-button> -->
         </div>
     </el-row>
     <div id="webGL_container" style="position:absolute;z-index:0">
     </div>
-    <div class = 'container'>
+    <div :style= "styleObject">
         <div class="block">
-            <span style="color:#ffffff">摆轮初始角度(不得超过±170°)</span>
-            <el-slider 
-            v-model="theta1du"
-            :max='maxtheta1'
-            :min='mintheta1'
-            :disabled="slidertype"
-            show-input
-            ></el-slider>
             <el-tooltip class="item" effect="dark" content="确定" placement="bottom">
-                <el-button type="success" circle :disabled="buttontype" @click="play"><i class="fa fa-check"></i></el-button>                
+                <el-button type="success" circle :disabled="button1type" @click="play"><i class="fa fa-check"></i></el-button>                
             </el-tooltip>
             <el-tooltip class="item" effect="dark" :content="button2text" placement="bottom">
                 <el-button type="warning" circle :disabled="button2type" @click="pause"><i :class="button2"></i></el-button>              
@@ -29,27 +21,55 @@
                 <el-button type="danger" circle @click="stop"><i class="fa fa-refresh"></i></el-button>              
             </el-tooltip>
         </div>
-        <el-collapse-transition>
-            <div v-show='showtable'>
-                <el-table
-                :data="tableData"
-                border
-                width="40%"
-                >
-                <el-table-column
-                prop="id"
-                label="序号"
-                >
-                </el-table-column>
-                <el-table-column
-                prop="A"
-                label="振幅(°)"
-                >
-                </el-table-column>
-                </el-table>
-            </div> 
-        </el-collapse-transition>
     </div>
+    <el-card
+    v-show='showtable'
+    :body-style="{ padding: '5px' }"
+    class="container"
+    >
+        <div slot="header" class="clearfix">
+            <el-button style="float: right; padding: 3px 0;" type="text" @click="closeTable()"><i class = 'fa fa-close'></i></el-button>
+        </div>
+        <el-row>
+            <el-col :span="12">
+                <div style="font-family:PingFang SC;float: left;color:grey;" >
+                    周期×10:
+                </div>
+            </el-col>
+            <el-col :span="12">
+                <div  style="font-family:PingFang SC;float: left;color:grey;">
+                    {{Math.floor(T*10*1000)/1000}} 
+                </div>
+            </el-col>
+        </el-row>
+        <br>
+        <el-table
+        stripe
+        :data="tableData"
+        height = 250px
+        border
+        >
+        <el-table-column
+        prop="id"
+        label="序号"
+        >
+        </el-table-column>
+        <el-table-column
+        prop="A"
+        label="振幅(°)"
+        >
+        </el-table-column>
+    </el-table> 
+    </el-card>
+    <div style="z-index:1000;position:absolute;left:20px;top:100px;" v-show="showGraphs">
+        <el-container>
+            <el-main>
+                <div id="echarts1" style="width:450px;height:200px;"></div>
+                <div id="echarts2" style="width:450px;height:200px;"></div>
+            </el-main>
+        </el-container>
+    </div>
+    
 </div>
 </template>
 
@@ -70,9 +90,6 @@
   .clearfix:after {
     clear: both
   }
-  .box-card {
-    width: 480px;
-  }
   .container {
         position:absolute;
         z-index: 1000;
@@ -81,15 +98,8 @@
         width:30%;
         
     }
-    .container2{
-        position:absolute;
-        z-index: 1000;
-        right:25px;
-        top:100px;
-        width:30%;
-    }
     .block {
-        text-align:left;
+        text-align:right;
     }
     .bottom {
       clear: both;
@@ -128,7 +138,7 @@ export default {
             show1:true,
             show2:true,
             slidertype:false,
-            buttontype:false,
+            button1type:false,
             controls:null,//GUI界面
             floor:null,
             plate180:null,
@@ -145,28 +155,27 @@ export default {
             light2mesh:null,
             group_trans:null,
             rodmesh:null,
-            lasttheta:0,
-            T:0,
-            wf:0,
+            theta_last:0,
+            T:0,//周期
+            wf:0,//固有频率
             powerw:0,
             m:0,
             t:0,
             flag:0,
-            theta1du:0,//角度制
-            theta1:0,//弧度制
+            theta_degree:0,//角度制
+            theta_rad:0,//弧度制
             theta2:0,
             phase:Math.PI/2,//相位
             maxtheta1:170,
             mintheta1:-170,
-            thetaend:0,
+            theta_end:0,
             thetaright:-Math.PI/2,
             rodtheta:0,
             thetaleft:Math.PI/2,
-            ispause:false,
+            is_pause:false,
             button2:'fa fa-pause',
             button2text:'暂停',
             button2type:false,
-            damping:null,
             showtable:false,
             tableData:[],
             count:1,
@@ -174,7 +183,29 @@ export default {
             maxT:17,
             minT:15,
             sliderT:15,
+            styleObject:{
+                position:'absolute',
+                zIndex: '1000',
+                right:'25px',
+                top:'0px',
+                width:'30%'
+                },
+            AWW0:new Map(),
+            PhiWW0:new Map(),
+            last_powerv:0,
+            showGraphs:false,
+            change_gui:0,
+            A1array:[],
+            A2array:[],
+            A3array:[],
+            Phi1array:[],
+            Phi2array:[],
+            Phi3array:[],
+            polegroup_rotation:0,
+            rodmesh_rotation:0,
+            group_trans_rotation:0
             }
+
     },
     methods:{
         
@@ -182,36 +213,242 @@ export default {
         {
             this.T = Math.random()*(1.62-1.55)+1.55
             this.damping = Math.random()*0.1 //查阻尼系数
-            this.wf = 2*Math.PI/this.T
-            this.m=280/180*Math.PI*this.damping*this.wf
-            this.AddScene();
-            this.AddCamera();
-            this.AddRender();
-            this.AddOrbitControls();
-            this.Addfloor();
-            this.Add180();
-            this.AddCylinder();
-            this.AddHelix(6.5*Math.PI,-Math.PI/2-this.theta1);
-            this.AddPole()
-            this.AddTransparentPlate()
-            this.AddFlask()
-            this.AddPlate()
-            this.AddRod()
-            this.Addstand()
-            this.Addlight()
+            this.wf = 2*Math.PI/this.T//固有频率
+            this.m=280/180*Math.PI*this.wf
+            this.last_powerv = this.wf/2/Math.PI-0.1
+            this.addScene();
+            this.addCamera();
+            this.addRender();
+            this.addOrbitControls();
+            this.addFloor();
+            this.add180();
+            this.addCylinder();
+            this.addHelix(6.5*Math.PI,-Math.PI/2-this.theta_rad);
+            this.addPole()
+            this.addTransparentPlate()
+            this.addFlask()
+            this.addPlate()
+            this.addRod()
+            this.addStand()
+            this.addLight()
             //X red Z blue Y green	
-            this.AddAxis();
-            this.AddGui()
+            this.addAxis();
+            this.addGui();
+            this.addGui_group1();
+            this.addListener();
             this.animate();
-            
         },
-         
-        AddScene()
+
+        animate() 
+        {    
+            {
+                switch (this.controls.vibration_type) {
+                    case '自由振动':
+                        this.closeTable;
+                        this.count = 1;
+                        this.closeEcharts();
+                        break;
+                    case '阻尼振动':
+                        this.closeEcharts();
+                        break;
+                    case '受迫振动':
+                        this.closeTable;
+                        this.count = 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            //更改css
+            {
+                var text = this.gui.domElement.getElementsByClassName("title")[0].innerText;
+                var dict = {'自由振动':this.gui_group1,'阻尼振动':this.gui_group2,'受迫振动':this.gui_group3};
+                switch (this.controls.vibration_type) {
+                    case '自由振动':
+                        if(text!='自由振动' && this.gui.domElement.getElementsByClassName("closed").length==0){
+                            this.gui.removeFolder(dict[text])
+                            this.addGui_group1();
+                        }
+                        break;
+                    case '阻尼振动':
+                        if(text!='阻尼振动' && this.gui.domElement.getElementsByClassName("closed").length==0){
+                            this.gui.removeFolder(dict[text])
+                            this.addGui_group2();
+                        }
+                        break;
+                    case '受迫振动':
+                        if(text!='受迫振动' && this.gui.domElement.getElementsByClassName("closed").length==0){
+                            this.gui.removeFolder(dict[text])
+                            this.addGui_group3();
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                var str = document.getElementsByClassName("dg main a")[0].children[0].style.height;
+                this.styleObject['top'] = parseInt(str.substring(0,str.length-2))+20+'px';
+                //更改css
+            }
+
+            //对于自由振动和阻尼振动 在点开始按钮之前可以调节圆盘角度 随着gui更改角度以及更改弹簧位置
+            if((this.controls.vibration_type == '自由振动' || this.controls.vibration_type == '阻尼振动')
+             && this.button1type==false && this.plate180!=null){
+                this.theta_rad=this.controls.theta_degree*Math.PI/180
+                this.plate180.rotateY(this.theta_rad-this.theta_last)
+                this.scene.remove(this.stringmesh)
+                this.addHelix(6.5*Math.PI,-Math.PI/2+this.theta_rad)
+                this.theta_last=this.theta_rad
+            }
+
+            //自由振动
+            if(this.controls.vibration_type == '自由振动' && this.button1type==true && this.is_pause!=true){
+                var dt = this.T/40
+                this.theta_last = this.theta_rad*Math.cos(this.wf*this.t)
+                this.t+=dt
+                this.theta_end = this.theta_rad*Math.cos(this.wf*this.t)
+                var thetabuf = this.theta_end - this.theta_last
+                this.plate180.rotateY(thetabuf)
+                this.scene.remove(this.stringmesh)
+                this.addHelix(6.5*Math.PI,-Math.PI/2+this.theta_end)
+            }
+            //阻尼振动
+            else if(this.controls.vibration_type == '阻尼振动' && this.button1type==true && this.is_pause!=true){
+                var dt = this.T/40
+                var e_coefficient = Math.pow(Math.E,-this.controls.beta*this.t)//e的系数 -e的beta*this.t次方
+                this.theta_last = this.theta_rad*e_coefficient*Math.cos(this.wf*this.t)
+                this.t+=dt
+                e_coefficient =  Math.pow(Math.E,-this.controls.beta*this.t)
+                this.theta_end = this.theta_rad*e_coefficient*Math.cos(this.wf*this.t)
+                //table
+                if(this.t-this.count*this.T<0.1 && this.t-this.count*this.T>0){
+                    if(this.showtable == true && this.tableData.length<10 ){
+                        this.tableData.push({id: this.tableData.length+1,A:parseInt(Math.abs(this.theta_end)*180/Math.PI)})
+                    }
+                    this.count++
+                }
+                var thetabuf = this.theta_end - this.theta_last
+                this.plate180.rotateY(thetabuf)
+                this.scene.remove(this.stringmesh)
+                this.addHelix(6.5*Math.PI,-Math.PI/2+this.theta_end)
+            }
+            else if(this.controls.vibration_type == '受迫振动' && this.button1type==true && this.is_pause!=true){
+                this.powerw=2*Math.PI*this.controls.powerv
+               
+                var Phi=Math.atan(-2*this.controls.beta*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
+                this.theta2 = this.m/Math.sqrt(Math.pow(this.wf*this.wf-this.powerw*this.powerw,2)+4*this.controls.beta*this.controls.beta*this.wf*this.wf)
+                //theta2振幅
+                var dt = this.T/100
+                this.theta_last = this.theta2*Math.cos(this.powerw*this.t+Phi)
+                this.t+=dt
+                this.theta_end = this.theta2*Math.cos(this.powerw*this.t+Phi)                
+                var thetabuf = this.theta_end - this.theta_last
+                if(this.theta_end*this.theta_last<0){
+                    this.changeLightColor(0xc4342d, 0xc4342d)
+                }
+                else this.changeLightColor(0x000000, 0x424242)
+                //pole
+                this.thetaright += dt * this.powerw
+                
+                var xright=300+10*Math.cos(this.thetaright)
+                var yright=-80+10*Math.sin(this.thetaright)
+                
+                var distanceXZ=Math.sqrt(Math.pow(xright,2)+Math.pow(yright,2));
+                var leftlong=(Math.pow(300,2)+distanceXZ*distanceXZ-Math.pow(90,2))/2/distanceXZ;
+                //右面圆
+                //两个圆心连线与两个圆交点连线的中点坐标
+                var bufx=xright*(distanceXZ-leftlong)/distanceXZ;
+                var bufz=yright*(distanceXZ-leftlong)/distanceXZ;
+                var bufUPdistance=Math.sqrt(Math.pow(300,2)-leftlong*leftlong);
+                var vx=yright/distanceXZ;
+                var vz=-xright/distanceXZ;
+                var finalX1=bufx+vx*bufUPdistance;
+                var finalX2=bufx-vx*bufUPdistance;
+                var finalY1=bufz+vz*bufUPdistance;
+                var finalY2=bufz-vz*bufUPdistance;
+                if(finalY1>finalY2)
+                {
+                    finalY1=finalY2
+                    finalX1=finalX2
+                }
+                var xleft=finalX1
+                var yleft=finalY1
+                var xmid=(xleft+xright)/2
+                var ymid=(yleft+yright)/2
+                var newrodtheta=-Math.atan((yright-yleft)/(xright-xleft))
+                var newlefttheta=Math.acos(xleft/Math.sqrt(xleft*xleft+yleft*yleft))
+                this.polegroup.rotateZ(this.thetaleft-newlefttheta)
+                this.polegroup_rotation += this.thetaleft-newlefttheta
+                this.rodmesh.rotateZ(this.rodtheta-newrodtheta)
+                this.rodmesh_rotation += this.rodtheta-newrodtheta
+                this.rodtheta=newrodtheta
+                this.group_trans.rotateZ(dt * this.powerw)
+                this.group_trans_rotation += dt*this.powerw
+                this.rodmesh.position.set(xmid,ymid,60)
+                this.thetaleft=newlefttheta
+                this.plate180.rotateY(thetabuf)
+                this.scene.remove(this.stringmesh)
+                this.addHelix(7*Math.PI-this.thetaleft,-Math.PI/2-this.theta_end)
+                //绘图
+                {
+                    this.showGraphs=true
+                    if(this.last_powerv!=this.controls.powerv ){
+                        this.AWW0.set(this.theta2,this.controls.powerv/this.wf)//幅频特征
+                        this.PhiWW0.set(Phi*180/Math.PI,this.controls.powerv/this.wf)
+                        var arrayObj=Array.from(this.AWW0);
+                        var arrayObj2 = Array.from(this.PhiWW0);
+                        arrayObj.sort((a,b)=>{return a[1]-b[1]});
+                        arrayObj2.sort((a,b)=>{return a[1]-b[1]});
+                        switch (this.controls.beta+"") {
+                            case '0.0543':
+                                this.A1array=[];
+                                this.Phi1array = [];
+                                for(var i=0;i<arrayObj.length;i++){
+                                    this.A1array.push(arrayObj[i][0])
+                                }
+                                for(var i=0;i<arrayObj2.length;i++){
+                                    this.Phi1array.push(arrayObj2[i][0])
+                                }
+                                break;
+                            case '0.0554':
+                                this.A2array=[];
+                                this.Phi2array=[];
+                                for(var i=0;i<arrayObj.length;i++){
+                                    this.A2array.push(arrayObj[i][0])
+                                }
+                                for(var i=0;i<arrayObj2.length;i++){
+                                    this.Phi2array.push(arrayObj2[i][0])
+                                }
+                                break;
+                            case '0.0571':
+                                this.A3array=[];
+                                this.Phi3array=[];
+                                for(var i=0;i<arrayObj.length;i++){
+                                    this.A3array.push(arrayObj[i][0])
+                                }
+                                for(var i=0;i<arrayObj2.length;i++){
+                                    this.Phi3array.push(arrayObj2[i][0])
+                                }
+                                break;
+                            default:
+                                break;
+                        } 
+                        this.echarts1.setOption(this.setEcharts(this.A1array,this.A2array,this.A3array,'幅频特征曲线'));
+                        this.echarts2.setOption(this.setEcharts(this.Phi1array,this.Phi2array,this.Phi3array,'相频特征曲线'))  
+                    }
+                    
+                }
+                this.last_powerv = this.controls.powerv;
+            }
+            this.renderer.render( this.scene, this.camera );
+            requestAnimationFrame(this.animate);
+        },
+
+        addScene()
         {
             this.scene=new THREE.Scene();
         },
 
-        AddCamera()
+        addCamera()
         {
             this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,10000);
             this.camera.position.x=400;
@@ -220,7 +457,7 @@ export default {
             this.camera.lookAt(0,0,0);
         },
 
-        AddRender()
+        addRender()
         {
             this.renderer=new THREE.WebGLRenderer({antialias : true});
             this.renderer.setClearColor(0x000000);
@@ -228,25 +465,64 @@ export default {
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
         },
 
-        AddOrbitControls()
+        addOrbitControls()
         {
             var OrbitControls = require('three-orbit-controls')(THREE);
             var obcontrol = new OrbitControls(this.camera,this.renderer.domElement);
         },
 
-        AddAxis()
+        addAxis()
         {
             this.axis=new THREE.AxesHelper(200);
             this.scene.add(this.axis);
         },
-        
-        Addfloor()
+
+        addLight()
         {
+            var bulblight=[];
+            for(var i=0;i<=5;i++)
+            {
+                bulblight[i]=new THREE.PointLight( 0xffffff, 3, 100, 1 );
+            }
+            bulblight[0].position.set(50,-50,80)
+            bulblight[1].position.set(50,50,80)
+            bulblight[2].position.set(-50,-50,80)
+            bulblight[3].position.set(-50,50,80)
+            bulblight[4] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
+            bulblight[4].position.set(200,0,50)
+            bulblight[5] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
+            bulblight[5].position.set(300,-90,0)
+            this.scene.add(bulblight[0])
+            this.scene.add(bulblight[1])
+            this.scene.add(bulblight[2])
+            this.scene.add(bulblight[3])
+            this.scene.add(bulblight[4])
+            this.scene.add(bulblight[5])
+        },
+        
+        addFloor()
+        {
+            var LoadTexture = (src,repeatx,repeaty)=>{
+                var floorMat = new THREE.MeshBasicMaterial( {
+                    color: 0xffffff,
+                    side:THREE.BackSide
+                })
+                var textureLoader = new THREE.TextureLoader()
+                textureLoader.load(src, function ( map ) {
+                    map.wrapS = THREE.RepeatWrapping;
+                    map.wrapT = THREE.RepeatWrapping;
+                    map.anisotropy = 4;
+                    map.repeat.set(repeatx,repeaty);
+                    floorMat.map = map;
+                    floorMat.needsUpdate = true;
+                })
+                return floorMat
+            };
             var boxTexture=[]
-            boxTexture[3]=this.LoadTexture("../../static/images/hardwood2_diffuse.jpg",8,8)
+            boxTexture[3]=LoadTexture("../../static/images/hardwood2_diffuse.jpg",8,8)
             for(var i=0;i<=5;i++){
                 if(i==3) continue;
-                boxTexture[i]=this.LoadTexture("../../static/images/woodtexture.jpg",2,2)
+                boxTexture[i]=LoadTexture("../../static/images/woodtexture.jpg",2,2)
             }
             var boxH = 5000
             var box=new THREE.BoxBufferGeometry(boxH,boxH,boxH)
@@ -256,30 +532,17 @@ export default {
             this.floor.position.z=0;
             this.scene.add(this.floor);
         },
-        LoadTexture(src,repeatx,repeaty){
-            var floorMat = new THREE.MeshBasicMaterial( {
-                color: 0xffffff,
-                side:THREE.BackSide
-            })
-            var textureLoader = new THREE.TextureLoader()
-            textureLoader.load(src, function ( map ) {
-                map.wrapS = THREE.RepeatWrapping;
-                map.wrapT = THREE.RepeatWrapping;
-                map.anisotropy = 4;
-                map.repeat.set(repeatx,repeaty);
-                floorMat.map = map;
-                floorMat.needsUpdate = true;
-            })
-            return floorMat
-        },
-        Addstand(){
+
+        addStand(){
+            //支架 最大
             var loadermodel = new OBJLoader().load("../../static/models/stand.obj",(obj)=>{
                 obj.scale.set(50,50,50)
                 obj.position.set(40,-160,-8)
                 this.scene.add(obj)
             })
         },
-        Add180()
+
+        add180()
         {
             var loadermodel = new OBJLoader()
             loadermodel.load('../../static/models/180.obj',(obj)=>{
@@ -292,8 +555,10 @@ export default {
                 this.plate180 = obj
                 })
         },
-        AddCylinder(){
-            //轴
+        
+        //右边轴
+        addCylinder(){
+            //轴 右轴
             this.cylindergroup = new THREE.Group()
             var cylinder1=new THREE.CylinderGeometry(15, 15 ,30,40)
             var cylinder2=new THREE.CylinderGeometry(5, 5 ,65,40)
@@ -310,7 +575,8 @@ export default {
             this.cylindergroup.rotation.x = Math.PI/2
             this.scene.add(this.cylindergroup)
         },
-        AddHelix(angle1,angle2)
+
+        addHelix(angle1,angle2)
         {
             var extrudeSettings = {
                 bevelEnabled: false, 
@@ -345,26 +611,28 @@ export default {
             this.stringmesh.rotateZ(1/6*Math.PI)
             this.scene.add(this.stringmesh)
         },
-        drawShape()
-        {
-            var shape1=new THREE.Shape();
-            shape1.moveTo(-5,0);
-            shape1.lineTo(5,0);
-            shape1.lineTo(5,6);
-            shape1.lineTo(0,22);
-            shape1.lineTo(-5,6)
-            shape1.lineTo(-5,0);
-            var extrudeSettings = {
-                bevelEnabled: false, 
-                steps: 1,
-                depth: 2, //extrusion depth, don't define an extrudePath
-                material:0, //material index of the front and back face
-                extrudeMaterial : 1 //material index of the side faces            
+
+        //this.polegroup
+        addPole(){
+            var drawShape = ()=>
+            {
+                var shape1=new THREE.Shape();
+                shape1.moveTo(-5,0);
+                shape1.lineTo(5,0);
+                shape1.lineTo(5,6);
+                shape1.lineTo(0,22);
+                shape1.lineTo(-5,6)
+                shape1.lineTo(-5,0);
+                var extrudeSettings = {
+                    bevelEnabled: false, 
+                    steps: 1,
+                    depth: 2, //extrusion depth, don't define an extrudePath
+                    material:0, //material index of the front and back face
+                    extrudeMaterial : 1 //material index of the side faces            
+                }
+                var shape11=new THREE.ExtrudeGeometry(shape1,extrudeSettings);
+                return shape11;
             }
-            var shape11=new THREE.ExtrudeGeometry(shape1,extrudeSettings);
-            return shape11;
-        },
-        AddPole(){
             this.polegroup=new THREE.Group() 
             //竖
             var pole1 = new THREE.CubeGeometry(15,5,202)
@@ -385,7 +653,7 @@ export default {
             polemesh3.position.set(0,58,30)
             this.polegroup.add(polemesh3)
             //指针
-            var triangle = this.drawShape()
+            var triangle = drawShape()
             var tristrech = new THREE.MeshPhongMaterial({color:0xfc9303})
             var trimesh = new THREE.Mesh(triangle,tristrech)
             trimesh.position.set(0,65,10)
@@ -393,47 +661,8 @@ export default {
             //this.polegroup.rotation.z = Math.PI/2
             this.scene.add(this.polegroup)
         },
-        AddTransparentPlate(){
-            this.group_trans = new THREE.Group();
-            var obj = new THREE.CylinderGeometry(60,60,2,40,40);
-            var material = new THREE.MeshBasicMaterial({color:'white',transparent:true,opacity:0.3});
-            var mesh = new THREE.Mesh(obj,material);
-            mesh.rotation.x = Math.PI/2;
-         
-            var box = new THREE.BoxGeometry( 14, 2 ,2 );
-            this.light1 = new THREE.PointLight( 0x000000, 2, 25);
-            this.light1mesh = new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242} ) )
-            this.light1.add( this.light1mesh );
-            this.light2 = new THREE.PointLight( 0x000000, 2, 25);
-            this.light2mesh =  new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242 } ) ) 
-            this.light2.add(this.light2mesh);
-            this.light1.position.set(-50,0,0);
-            this.light2.position.set(50,0,0);//长条灯
 
-            this.group_trans.add(mesh);
-            this.group_trans.add(this.light1);
-            this.group_trans.add(this.light2); 
-            this.group_trans.position.set(300,-80,35);//透明盘结束
-            this.scene.add(this.group_trans);
-            
-        },
-        AddFlask(){
-            //添加闪光灯
-            var geo = new THREE.BoxGeometry(50,70,50);
-            var mater = new THREE.MeshPhongMaterial(({color:0x010101}));
-            var mesh = new THREE.Mesh(geo,mater);
-            mesh.position.set(292,-150,110)
-            this.scene.add(mesh);
-        },
-        ChangeLightColor(c1,c2){
-            //不亮 this.ChangeLightColor(0x000000, 0x424242);
-            //亮  this.ChangeLightColor(0xc4342d, 0xc4342d);
-            this.light1.color.set(c1);
-            this.light1mesh.material.color.set(c2);
-            this.light2.color.set(c1);
-            this.light2mesh.material.color.set(c2);
-        },
-        AddPlate()
+        addPlate()
         {
             this.plategroup = new THREE.Group()
             var platemtl = new MTLLoader()
@@ -465,7 +694,8 @@ export default {
             this.plategroup.position.set(0,10,30)
             this.scene.add(this.plategroup)
         },
-        AddRod(){
+
+        addRod(){
             var rod = new THREE.CylinderGeometry(3, 3,300,20)
             var cylinderMat = new THREE.MeshPhongMaterial({
                 color:0x63686a,
@@ -476,227 +706,336 @@ export default {
             this.rodmesh.position.set(150,-90,60)
             this.scene.add(this.rodmesh)
         },
-        Addlight()
-        {
-            var bulblight=[];
-            for(var i=0;i<=5;i++)
-            {
-                bulblight[i]=new THREE.PointLight( 0xffffff, 3, 100, 1 );
-            }
-            bulblight[0].position.set(50,-50,80)
-            bulblight[1].position.set(50,50,80)
-            bulblight[2].position.set(-50,-50,80)
-            bulblight[3].position.set(-50,50,80)
-            bulblight[4] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            bulblight[4].position.set(200,0,50)
-            bulblight[5] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            bulblight[5].position.set(300,-90,0)
-            this.scene.add(bulblight[0])
-            this.scene.add(bulblight[1])
-            this.scene.add(bulblight[2])
-            this.scene.add(bulblight[3])
-            this.scene.add(bulblight[4])
-            this.scene.add(bulblight[5])
+
+        //this.group_trans
+        addTransparentPlate(){
+            this.group_trans = new THREE.Group();
+            var obj = new THREE.CylinderGeometry(60,60,2,40,40);
+            var material = new THREE.MeshBasicMaterial({color:'white',transparent:true,opacity:0.3});
+            var mesh = new THREE.Mesh(obj,material);
+            mesh.rotation.x = Math.PI/2;
+         
+            var box = new THREE.BoxGeometry( 14, 2 ,2 );
+            this.light1 = new THREE.PointLight( 0x000000, 2, 25);
+            this.light1mesh = new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242} ) )
+            this.light1.add( this.light1mesh );
+            this.light2 = new THREE.PointLight( 0x000000, 2, 25);
+            this.light2mesh =  new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242 } ) ) 
+            this.light2.add(this.light2mesh);
+            this.light1.position.set(-50,0,0);
+            this.light2.position.set(50,0,0);//长条灯
+
+            this.group_trans.add(mesh);
+            this.group_trans.add(this.light1);
+            this.group_trans.add(this.light2); 
+            this.group_trans.position.set(300,-80,35);//透明盘结束
+            this.scene.add(this.group_trans);
+            
         },
-        turnGrey(){
-            this.buttontype = true
-            this.slidertype = true
-            this.button2type = false
-            this.showtable=false
+
+        //闪光灯
+        addFlask(){
+            //添加闪光灯
+            var geo = new THREE.BoxGeometry(50,70,50);
+            var mater = new THREE.MeshPhongMaterial(({color:0x010101}));
+            var mesh = new THREE.Mesh(geo,mater);
+            mesh.position.set(292,-150,110)
+            this.scene.add(mesh);
         },
-        animate() 
-        {   
-            if(this.buttontype==false && this.plate180!=null){
-                this.button2type = true
-                this.theta1=this.theta1du*Math.PI/180
-                this.plate180.rotateY(-this.lasttheta)
-                this.plate180.rotateY(this.theta1)
-                this.scene.remove(this.stringmesh)
-                this.AddHelix(6.5*Math.PI,-Math.PI/2+this.theta1)
-                this.lasttheta=this.theta1
-            }
-            if(this.buttontype==true && this.plate180!=null && this.ispause==false){
-                if(this.controls['power']==true){
-                    
-                    this.controls['damping']=true
-                    this.turnGrey()
-                    if(this.powerw!=2*Math.PI*this.controls['powerv'])
-                    {
-                        this.powerw=2*Math.PI*this.controls['powerv']
-                        this.t=0 
-                        this.phase=Math.atan(2*this.damping*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
-                    }
-                    this.theta2 = this.m/Math.sqrt(Math.pow(this.wf*this.wf-this.powerw*this.powerw,2)+4*this.damping*this.damping*this.wf*this.wf)
 
-                }
-                var bt = 1
-                this.button2type = false
-                var dt = this.T/25
-                this.t+=dt
-                if(this.controls['damping']==true){
-                    bt = Math.pow(Math.E,-this.damping*this.t)
-                }
-                var Phi=Math.atan(-2*this.damping*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
-                var thetabuf = this.theta1*bt*Math.cos(this.wf*this.t)+this.theta2*Math.cos(this.powerw*this.t+Phi)-this.thetaend
-                if(this.thetaend*(this.thetaend+thetabuf)<0){
-                    this.ChangeLightColor(0xc4342d, 0xc4342d);
-                }
-                else this.ChangeLightColor(0x000000, 0x424242);
-                this.thetaend += thetabuf
-                
-                //table
-                if(this.t-this.count*this.T<0.1 && this.t-this.count*this.T>0 && this.controls['power']==false){
-                    this.tableData.push({id:this.count,A:parseInt(this.thetaend*180/Math.PI)})
-                    this.count++
-                    if(this.count==11)this.count=1
-                }
-                if(this.thetaend <=0.04 && this.thetabuf<=0.04)this.stop()
-                //pole
-                this.thetaright += dt * this.powerw
-                
-                var xright=300+10*Math.cos(this.thetaright)
-                var yright=-80+10*Math.sin(this.thetaright)
-                
-                var distanceXZ=Math.sqrt(Math.pow(xright,2)+Math.pow(yright,2));
-                var leftlong=(Math.pow(300,2)+distanceXZ*distanceXZ-Math.pow(90,2))/2/distanceXZ;
-                //右面圆
-                //两个圆心连线与两个圆交点连线的中点坐标
-                var bufx=xright*(distanceXZ-leftlong)/distanceXZ;
-                var bufz=yright*(distanceXZ-leftlong)/distanceXZ;
-                var bufUPdistance=Math.sqrt(Math.pow(300,2)-leftlong*leftlong);
-                var vx=yright/distanceXZ;
-                var vz=-xright/distanceXZ;
-                var finalX1=bufx+vx*bufUPdistance;
-                var finalX2=bufx-vx*bufUPdistance;
-                var finalY1=bufz+vz*bufUPdistance;
-                var finalY2=bufz-vz*bufUPdistance;
-
-                if(finalY1>finalY2)
-                {
-                    finalY1=finalY2
-                    finalX1=finalX2
-                }
-
-                var xleft=finalX1
-                var yleft=finalY1
-                var xmid=(xleft+xright)/2
-                var ymid=(yleft+yright)/2
-                var newrodtheta=-Math.atan((yright-yleft)/(xright-xleft))
-                var newlefttheta=Math.acos(xleft/Math.sqrt(xleft*xleft+yleft*yleft))
-                this.polegroup.rotateZ(this.thetaleft-newlefttheta)
-                this.rodmesh.rotateZ(this.rodtheta-newrodtheta)
-                
-                this.rodtheta=newrodtheta
-                this.group_trans.rotateZ(dt * this.powerw)
-                
-                this.rodmesh.position.set(xmid,ymid,60)
-                this.thetaleft=newlefttheta
-
-                this.plate180.rotateY(thetabuf)
-                //居然是y在转
-                this.scene.remove(this.stringmesh)
-                this.AddHelix(7*Math.PI-this.thetaleft,-Math.PI/2-this.thetaend)
-            }
-            // if(this.value2==true){
-                
-            // }
-            this.renderer.render( this.scene, this.camera );
-            requestAnimationFrame(this.animate);
+        //改变闪光颜色
+        changeLightColor(c1,c2){
+            //不亮 this.changeLightColor(0x000000, 0x424242);
+            //亮  this.changeLightColor(0xc4342d, 0xc4342d);
+            this.light1.color.set(c1);
+            this.light1mesh.material.color.set(c2);
+            this.light2.color.set(c1);
+            this.light2mesh.material.color.set(c2);
         },
+
+        addListener(){
+            var onWindowResize = ()=> {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+            window.addEventListener('resize',onWindowResize);
+        },
+        
+        // 添加window 的resize事件监听
         play(){
-            //点击确定
-            this.buttontype = true
-            this.slidertype = true
-            this.button2type = false
-            this.showtable=true
-            this.button2='fa fa-pause'
-            this.button2text='暂停'
-            this.ispause=false
+            this.disabledGui0();
+            //点击确定后更改按钮状态
+            {
+                this.button1type = true
+                this.button2type = false
+                this.button2='fa fa-pause'
+                this.button2text='暂停'
+            }
+
+            {
+                switch (this.controls.vibration_type) {
+                    case '自由振动':
+                        this.disabledGuiGroup1();
+                        break;
+                    case '阻尼振动':
+                        this.disabledGuiGroup2();
+                        this.count = 1;
+                        this.closeTable();
+                        break;
+                    case '受迫振动':
+                        this.disabledGuiGroup3();
+                        break;
+                    default:
+                        break;
+                }
+            }
         },
         pause(){
-            if(this.ispause == false){
+            if(this.is_pause == false){
                 this.button2='fa fa-play'
                 this.button2text='继续'
-                this.ispause=true
+                this.is_pause=true
             }else{
                 this.button2='fa fa-pause'
                 this.button2text='暂停'
-                this.ispause=false
+                this.is_pause=false
             }   
         },
 
         stop(){
-            //还原到最初样子
-            //开始按钮  slider可用 角度为0 theta1du=0 thetaend=0 t =0 弹簧回0 摆轮回0 lasttheta=0
-            this.plate180.rotateY(-this.thetaend)
-            this.thetaend=0
-            this.theta1du = 0
-            this.t = 0
-            this.scene.remove(this.stringmesh)
-            this.AddHelix(6.5*Math.PI,-Math.PI/2-0);
+            this.enabledGui0()
+            //所有情况按钮都会这样变化
+            this.button1type = false
             this.button2type=true
-            this.ispause=false
             this.button2='fa fa-pause'
             this.button2text='暂停'
-            this.buttontype = false
-            //这个！！！害我查了两个小时bug
-            this.lasttheta=0 
-            this.slidertype = false
-            this.theta2=0
+            //所有情况弹簧归零都一样
+            this.scene.remove(this.stringmesh)
+            this.addHelix(6.5*Math.PI,-Math.PI/2-0);
+            
+            if(this.controls.vibration_type=='自由振动'){
+                //转盘角度归0
+                {
+                    this.plate180.rotateY(-this.theta_end)
+                    this.theta_end=0
+                    this.t = 0
+                    this.theta_last = 0
+                }
+                //gui回到原样
+                {
+                    this.controls.theta_degree = 0
+                    this.enabledGuiGroup1();
+                }   
+            }   
+            else if( this.controls.vibration_type == '阻尼振动'){
+                //转盘角度归0
+                {
+                    this.plate180.rotateY(-this.theta_end)
+                    this.theta_end=0
+                    this.t = 0
+                    this.theta_last = 0
+                }
+                //gui回到原样
+                {
+                    this.controls.theta_degree = 0
+                    this.enabledGuiGroup2()
+                }
+                //清空图表
+                {
+                    this.closeEcharts()
+                    this.showGraphs = 0
+                }
+                //清空表格
+                {
+                    this.closeTable()
+                    this.count =1;
+                }   
+            }
+            else if( this.controls.vibration_type == '受迫振动'){
+                //转盘角度归0 
+                {
+                    this.plate180.rotateY(-this.theta_end)
+                    this.theta_end=0
+                    this.t = 0
+                    this.theta_last = 0
+                }
+                //杆件回正
+                {
+                    this.rodmesh.rotateZ(-this.rodmesh_rotation)
+                    this.group_trans.rotateZ(-this.group_trans_rotation)
+                    this.polegroup.rotateZ(-this.polegroup_rotation)
+                    this.polegroup_rotation=0
+                    this.rodmesh_rotation=0
+                    this.group_trans_rotation=0
+                    this.rodmesh.position.set(150,-90,60)
+                }
+                //gui回到原样
+                {
+                    this.controls.powerv = this.wf/2/Math.PI-0.1
+                    this.enabledGuiGroup3()
+                }
+                {
+                    this.AWW0 = new Map();
+                    this.PhiWW0 = new Map();
+                }
+            }
+            // this.theta_last=0 
+            // this.theta2=0
         },
-        AddGui()
+        addGui()
         {
+            this.gui=new dat.GUI();
             this.controls=
             {
-                damping:false,
-                power:false,
-                powerv:this.wf/2/Math.PI,
-                phi0:Math.PI/2,
+                vibration_type:'自由振动',//振动类别
+                // damping:false,
+                // power:false,
+                beta:0.0543,
+                theta_degree:0,//初始角度为0
+                powerv:this.wf/2/Math.PI-0.1,//电机频率
+                phi0:Math.PI/2,//初相位
+                measure:()=>{
+                    if(this.button1type == true){
+                        this.showtable = true;          
+                    }
+                }
             }
-            var gui=new dat.GUI();
-            var group1 = gui.addFolder("阻尼振动")
-            var group2 = gui.addFolder("受迫振动")
-            
-            //LongestPole为长度
-            group1.add(this.controls,"damping").name("是否添加阻尼").listen()
-            group1.open()
-            group2.add(this.controls,'power').name("是否添加策动力").listen()
-            group2.add(this.controls,'phi0',0,Math.PI).name("初相位")
-            group2.add(this.controls,"powerv",this.wf/2/Math.PI-0.1,this.wf/2/Math.PI+0.1).name("电机频率")
-            group2.open()
+            this.gui0 = this.gui.add(this.controls,'vibration_type',['自由振动','阻尼振动','受迫振动']).name("振动类别");
+        },
+        addGui_group1(){
+            this.gui_group1 = this.gui.addFolder("自由振动");
+            this.theta_degree = this.gui_group1.add(this.controls,"theta_degree",-170,170).name("摆轮初始角度(°)").listen();
+            this.gui_group1.open();
+        },
+        disabledGuiGroup1(){
+            this.theta_degree.domElement.style.pointerEvents = "none"
+            this.theta_degree.domElement.style.opacity = .5;
+        },
+        enabledGuiGroup1(){
+            this.theta_degree.domElement.style.pointerEvents = "auto"
+            this.theta_degree.domElement.style.opacity = 1;
+        },
+        addGui_group2(){
+            this.gui_group2 = this.gui.addFolder("阻尼振动");
+            this.theta_degree = this.gui_group2.add(this.controls,"theta_degree",-170,170).name("摆轮初始角度(°)").listen();
+            this.beta = this.gui_group2.add(this.controls,"beta",{'阻尼1':0.0543,'阻尼2':0.0554,'阻尼3':0.0571}).name('阻尼系数');
+            this.button_gui = this.gui_group2.add(this.controls,'measure').name('点击此处测量振幅').listen();
+            this.gui_group2.open();
+        },
+        getController(gui,object, property)
+        {
+            for (var i = 0; i < gui.__controllers.length; i++)
+            {
+                var controller = gui.__controllers[i];
+                if (controller.object == object && controller.property == property)
+                    return controller;
+            }
+            return null;
+        },
+        disabledGuiGroup2(){
+            this.theta_degree.domElement.style.pointerEvents = "none"
+            this.theta_degree.domElement.style.opacity = .5;
+            this.beta.domElement.style.pointerEvents = "none"
+            this.beta.domElement.style.opacity = .5
+        },
+        enabledGuiGroup2(){
+            this.theta_degree.domElement.style.pointerEvents = "auto"
+            this.theta_degree.domElement.style.opacity = 1;
+            this.beta.domElement.style.pointerEvents = "auto"
+            this.beta.domElement.style.opacity = 1;
+        },
+        addGui_group3(){
+            this.gui_group3 = this.gui.addFolder("受迫振动");
+            this.gui_group3.add(this.controls,"powerv",this.wf/2/Math.PI-0.1,this.wf/2/Math.PI+0.1).name("电机频率").listen();
+            this.beta = this.gui_group3.add(this.controls,"beta",{'阻尼1':0.0543,'阻尼2':0.0554,'阻尼3':0.0571}).name('阻尼系数').listen();
+            this.gui_group3.open();
+        },
+        disabledGuiGroup3(){
+            this.beta.domElement.style.pointerEvents = "none"
+            this.beta.domElement.style.opacity = .5;
+        },
+        enabledGuiGroup3(){
+            this.beta.domElement.style.pointerEvents = "auto"
+            this.beta.domElement.style.opacity = 1;
+        },
+        disabledGui0(){
+            this.gui0.domElement.style.pointerEvents = "none"
+            this.gui0.domElement.style.opacity = .5;
+        },
+        enabledGui0(){
+            this.gui0.domElement.style.pointerEvents = "auto"
+            this.gui0.domElement.style.opacity = 1;
+        },
+        closeTable(){
+            this.showtable = false;
+            this.tableData = [];
+        },
+        closeEcharts(){
+            this.showGraphs = false
+            this.AWW0=new Map()
+            this.PhiWW0=new Map()
+            this.A1array=[]
+            this.A2array=[]
+            this.A3array=[]
+            this.Phi1array=[]
+            this.Phi2array=[]
+            this.Phi3array=[]
         },
         //speedFar 最大的圆自转速度 speedMiddle 最小圆转速 omegaH 公转速度 omega2 自转速度
-        Topage(path)
+        toPage(path)
         {
             this.$router.push(path);
         },
 
        
-        setEcharts(buffList,linecolor,text)
+        setEcharts(array1,array2,array3,text)
         {
             var option = {
                 title: {
                     text: text,
-                    textStyle: {
-	        	        color: '#faf0e6'
-	      	        }
+                    textStyle: {//title字体的样式
+                        color: '#fff',
+                    }
                 },
-                
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data:['阻尼1', '阻尼2', '阻尼3'],
+                    textStyle:{
+                        color: "#fff"
+                    }
+                },
                 xAxis: {
                     type: 'category',
-                    data: []
                 },
                 yAxis: {
                     type: 'value'
                 },
-                color:[linecolor],
+                textStyle: {
+                    color: "#fff"
+                },
                 series: [
-                    {
-                        data: buffList,
-                        type: 'line',
-                        smooth: false,
-                    },
-                    ]
+                {
+                    name:'阻尼1',
+                    data: array1,
+                    type: 'line',
+                    smooth: true
+                },
+                {
+                    name:'阻尼2',
+                    data: array2,
+                    type: 'line',
+                    smooth: true
+                },
+                {
+                    name:'阻尼3',
+                    data: array3,
+                    type: 'line',
+                    smooth: true
+                },
+                ]
             };
             return option;
         },
@@ -704,8 +1043,8 @@ export default {
         mounted(){
             this.init();
             // this.myChart=this.$echarts.init(document.getElementById('myecharts'));
-            // this.myChart1=this.$echarts.init(document.getElementById('myecharts1'));
-            // this.myChart2=this.$echarts.init(document.getElementById('myecharts2'));
+            this.echarts1=this.$echarts.init(document.getElementById('echarts1'));
+            this.echarts2=this.$echarts.init(document.getElementById('echarts2'));
         },
         destroyed()
         {
