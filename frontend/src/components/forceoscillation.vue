@@ -38,7 +38,7 @@
             </el-col>
             <el-col :span="12">
                 <div  style="font-family:PingFang SC;float: left;color:grey;">
-                    {{Math.floor(T*10*1000)/1000}} 
+                    {{T10}} 
                 </div>
             </el-col>
         </el-row>
@@ -64,8 +64,7 @@
     <div style="z-index:1000;position:absolute;left:20px;top:100px;" v-show="showGraphs">
         <el-container>
             <el-main>
-                <div id="echarts1" style="width:450px;height:200px;"></div>
-                <div id="echarts2" style="width:450px;height:200px;"></div>
+                <div id="echarts1" style="width:450px;height:300px;"></div>
             </el-main>
         </el-container>
     </div>
@@ -77,11 +76,9 @@
 .text {
     font-size: 14px;
   }
-
   .item {
     margin-bottom: 18px;
   }
-
   .clearfix:before,
   .clearfix:after {
     display: table;
@@ -105,7 +102,6 @@
       clear: both;
       text-align: center;
     }
-
     .item {
       margin: 4px;
       
@@ -120,7 +116,6 @@ import {MTLLoader, OBJLoader} from 'three-obj-mtl-loader'
 import GLTFLoader from 'three-gltf-loader';
 import {Lensflare , LensflareElement} from '@zosma/three-lensflare-ts'
 export default {
-
     data(){
         return{
             scene:null,
@@ -153,9 +148,12 @@ export default {
             light1mesh:null,
             light2:null,
             light2mesh:null,
+            light3:null,
+            light3mesh:null,
             group_trans:null,
             rodmesh:null,
             theta_last:0,
+            w_last:0,
             T:0,//周期
             wf:0,//固有频率
             powerw:0,
@@ -164,7 +162,9 @@ export default {
             flag:0,
             theta_degree:0,//角度制
             theta_rad:0,//弧度制
+            theta1:0,
             theta2:0,
+            alpha:0,
             phase:Math.PI/2,//相位
             maxtheta1:170,
             mintheta1:-170,
@@ -203,9 +203,12 @@ export default {
             Phi3array:[],
             polegroup_rotation:0,
             rodmesh_rotation:0,
-            group_trans_rotation:0
+            group_trans_rotation:0,
+            openflash:0,
+            plate180graph_array:[],
+            powergraph_array:[],
+            T10:0,
             }
-
     },
     methods:{
         
@@ -214,7 +217,7 @@ export default {
             this.T = Math.random()*(1.62-1.55)+1.55
             this.damping = Math.random()*0.1 //查阻尼系数
             this.wf = 2*Math.PI/this.T//固有频率
-            this.m=280/180*Math.PI*this.wf
+            this.m=170/180*Math.PI*2*this.wf*0.0543
             this.last_powerv = this.wf/2/Math.PI-0.1
             this.addScene();
             this.addCamera();
@@ -238,7 +241,6 @@ export default {
             this.addListener();
             this.animate();
         },
-
         animate() 
         {    
             {
@@ -289,7 +291,6 @@ export default {
                 this.styleObject['top'] = parseInt(str.substring(0,str.length-2))+20+'px';
                 //更改css
             }
-
             //对于自由振动和阻尼振动 在点开始按钮之前可以调节圆盘角度 随着gui更改角度以及更改弹簧位置
             if((this.controls.vibration_type == '自由振动' || this.controls.vibration_type == '阻尼振动')
              && this.button1type==false && this.plate180!=null){
@@ -299,14 +300,17 @@ export default {
                 this.addHelix(6.5*Math.PI,-Math.PI/2+this.theta_rad)
                 this.theta_last=this.theta_rad
             }
-
             //自由振动
             if(this.controls.vibration_type == '自由振动' && this.button1type==true && this.is_pause!=true){
                 var dt = this.T/40
-                this.theta_last = this.theta_rad*Math.cos(this.wf*this.t)
+                var e_coefficient = Math.pow(Math.E,-0.01*this.t)
+                this.theta_last = this.theta_rad*e_coefficient*Math.cos(this.wf*this.t)
                 this.t+=dt
-                this.theta_end = this.theta_rad*Math.cos(this.wf*this.t)
+                e_coefficient = Math.pow(Math.E,-0.01*this.t)
+                this.theta_end = this.theta_rad*e_coefficient*Math.cos(this.wf*this.t)
+                this.changeGateColor();
                 var thetabuf = this.theta_end - this.theta_last
+                this.controls.amplitude = parseInt(this.theta_rad*e_coefficient*180/Math.PI)+''
                 this.plate180.rotateY(thetabuf)
                 this.scene.remove(this.stringmesh)
                 this.addHelix(6.5*Math.PI,-Math.PI/2+this.theta_end)
@@ -319,10 +323,13 @@ export default {
                 this.t+=dt
                 e_coefficient =  Math.pow(Math.E,-this.controls.beta*this.t)
                 this.theta_end = this.theta_rad*e_coefficient*Math.cos(this.wf*this.t)
+                this.changeGateColor();
                 //table
                 if(this.t-this.count*this.T<0.1 && this.t-this.count*this.T>0){
                     if(this.showtable == true && this.tableData.length<10 ){
                         this.tableData.push({id: this.tableData.length+1,A:parseInt(Math.abs(this.theta_end)*180/Math.PI)})
+                        this.T10+=dt*40;
+                        this.T10 = parseInt(this.T10*10000)/10000;
                     }
                     this.count++
                 }
@@ -334,21 +341,42 @@ export default {
             else if(this.controls.vibration_type == '受迫振动' && this.button1type==true && this.is_pause!=true){
                 this.powerw=2*Math.PI*this.controls.powerv
                
-                var Phi=Math.atan(-2*this.controls.beta*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
-                this.theta2 = this.m/Math.sqrt(Math.pow(this.wf*this.wf-this.powerw*this.powerw,2)+4*this.controls.beta*this.controls.beta*this.wf*this.wf)
+                var Phi=Math.atan(-2*this.controls.beta*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))+Math.PI/2
+                this.theta2 = this.m/Math.sqrt(Math.pow(this.wf*this.wf-this.powerw*this.powerw,2)+4*this.controls.beta*this.controls.beta*this.powerw*this.powerw)
                 //theta2振幅
-                var dt = this.T/100
-                this.theta_last = this.theta2*Math.cos(this.powerw*this.t+Phi)
+                this.controls.amplitude = parseInt(this.theta2*180/Math.PI)+''
+                var dt = this.T/40
+                var wwf = Math.sqrt(this.wf*this.wf-this.controls.beta*this.controls.beta) 
+                if(this.last_powerv!=this.controls.powerv || this.t == 0){
+                    this.t = 0 
+                    this.alpha = Math.atan(-(this.w_last+this.powerw*this.theta2*Math.sin(Phi))/wwf/(this.theta_last-this.theta2*Math.cos(Phi)))
+                    this.theta1 = (this.theta_last-this.theta2*Math.cos(Phi))/Math.cos(this.alpha)
+                }
                 this.t+=dt
-                this.theta_end = this.theta2*Math.cos(this.powerw*this.t+Phi)                
+                
+                this.theta_end = this.theta1*Math.exp(-this.controls.beta*this.t)*Math.cos(wwf*this.t+this.alpha) + this.theta2*Math.cos(this.powerw*this.t+Phi) 
+                this.changeGateColor();
+                var dtheta=Math.PI-Math.abs(wwf*this.t+this.alpha-this.powerw*this.t-Phi)              
+                this.controls.amplitude = parseInt(Math.sqrt(this.theta1*Math.exp(-this.controls.beta*this.t*2)*this.theta1+this.theta2*this.theta2-2*this.theta1*Math.exp(-this.controls.beta*this.t)*this.theta2*Math.cos(dtheta))*180/Math.PI)
                 var thetabuf = this.theta_end - this.theta_last
-                if(this.theta_end*this.theta_last<0){
+
+                if(this.theta_end*this.theta_last<0 && this.openflash == 1){
                     this.changeLightColor(0xc4342d, 0xc4342d)
                 }
                 else this.changeLightColor(0x000000, 0x424242)
+                this.theta_last = this.theta_end
+                this.w_last = -this.controls.beta*this.theta1*Math.exp(-this.controls.beta*this.t)*Math.cos(wwf*this.t+this.alpha)
+                              -wwf*this.theta1*Math.exp(-this.controls.beta*this.t)*Math.sin(wwf*this.t+this.alpha)
+                              -this.powerw*this.theta2*Math.sin(this.powerw*this.t+Phi)
+
                 //pole
                 this.thetaright += dt * this.powerw
-                
+                this.plate180graph_array.push(this.theta_end*180/Math.PI)
+                this.powergraph_array.push(100*Math.cos(this.thetaright-parseInt(this.thetaright/(2*Math.PI))*2*Math.PI))
+                if(this.plate180graph_array.length>120){
+                    this.plate180graph_array.shift();
+                    this.powergraph_array.shift();
+                }
                 var xright=300+10*Math.cos(this.thetaright)
                 var yright=-80+10*Math.sin(this.thetaright)
                 
@@ -391,63 +419,18 @@ export default {
                 //绘图
                 {
                     this.showGraphs=true
-                    if(this.last_powerv!=this.controls.powerv ){
-                        this.AWW0.set(this.theta2,this.controls.powerv/this.wf)//幅频特征
-                        this.PhiWW0.set(Phi*180/Math.PI,this.controls.powerv/this.wf)
-                        var arrayObj=Array.from(this.AWW0);
-                        var arrayObj2 = Array.from(this.PhiWW0);
-                        arrayObj.sort((a,b)=>{return a[1]-b[1]});
-                        arrayObj2.sort((a,b)=>{return a[1]-b[1]});
-                        switch (this.controls.beta+"") {
-                            case '0.0543':
-                                this.A1array=[];
-                                this.Phi1array = [];
-                                for(var i=0;i<arrayObj.length;i++){
-                                    this.A1array.push(arrayObj[i][0])
-                                }
-                                for(var i=0;i<arrayObj2.length;i++){
-                                    this.Phi1array.push(arrayObj2[i][0])
-                                }
-                                break;
-                            case '0.0554':
-                                this.A2array=[];
-                                this.Phi2array=[];
-                                for(var i=0;i<arrayObj.length;i++){
-                                    this.A2array.push(arrayObj[i][0])
-                                }
-                                for(var i=0;i<arrayObj2.length;i++){
-                                    this.Phi2array.push(arrayObj2[i][0])
-                                }
-                                break;
-                            case '0.0571':
-                                this.A3array=[];
-                                this.Phi3array=[];
-                                for(var i=0;i<arrayObj.length;i++){
-                                    this.A3array.push(arrayObj[i][0])
-                                }
-                                for(var i=0;i<arrayObj2.length;i++){
-                                    this.Phi3array.push(arrayObj2[i][0])
-                                }
-                                break;
-                            default:
-                                break;
-                        } 
-                        this.echarts1.setOption(this.setEcharts(this.A1array,this.A2array,this.A3array,'幅频特征曲线'));
-                        this.echarts2.setOption(this.setEcharts(this.Phi1array,this.Phi2array,this.Phi3array,'相频特征曲线'))  
-                    }
-                    
+                    this.echarts1.setOption(this.setEcharts(this.plate180graph_array,this.powergraph_array,'电机转盘相位曲线'));
+                    //this.echarts2.setOption(this.setEcharts(this.Phi1array,this.Phi2array,this.Phi3array,'相频特征曲线'))  
                 }
                 this.last_powerv = this.controls.powerv;
             }
             this.renderer.render( this.scene, this.camera );
             requestAnimationFrame(this.animate);
         },
-
         addScene()
         {
             this.scene=new THREE.Scene();
         },
-
         addCamera()
         {
             this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,10000);
@@ -456,7 +439,6 @@ export default {
             this.camera.position.z=400;//40 40 40 //0 150 400
             this.camera.lookAt(0,0,0);
         },
-
         addRender()
         {
             this.renderer=new THREE.WebGLRenderer({antialias : true});
@@ -464,19 +446,16 @@ export default {
             this.renderer.setSize(window.innerWidth,window.innerHeight);
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
         },
-
         addOrbitControls()
         {
             var OrbitControls = require('three-orbit-controls')(THREE);
             var obcontrol = new OrbitControls(this.camera,this.renderer.domElement);
         },
-
         addAxis()
         {
             this.axis=new THREE.AxesHelper(200);
             this.scene.add(this.axis);
         },
-
         addLight()
         {
             var bulblight=[];
@@ -532,16 +511,20 @@ export default {
             this.floor.position.z=0;
             this.scene.add(this.floor);
         },
-
         addStand(){
             //支架 最大
             var loadermodel = new OBJLoader().load("../../static/models/stand.obj",(obj)=>{
                 obj.scale.set(50,50,50)
                 obj.position.set(40,-160,-8)
+                var box = new THREE.BoxGeometry( 2, 2 ,0.5 );
+                this.light3 = new THREE.PointLight( 0x000000, 2, 20);
+                this.light3mesh = new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242} ) )
+                this.light3.add( this.light3mesh );
+                this.light3.position.set(3,95,18)
+                this.scene.add(this.light3)
                 this.scene.add(obj)
             })
         },
-
         add180()
         {
             var loadermodel = new OBJLoader()
@@ -575,7 +558,6 @@ export default {
             this.cylindergroup.rotation.x = Math.PI/2
             this.scene.add(this.cylindergroup)
         },
-
         addHelix(angle1,angle2)
         {
             var extrudeSettings = {
@@ -611,7 +593,6 @@ export default {
             this.stringmesh.rotateZ(1/6*Math.PI)
             this.scene.add(this.stringmesh)
         },
-
         //this.polegroup
         addPole(){
             var drawShape = ()=>
@@ -661,7 +642,6 @@ export default {
             //this.polegroup.rotation.z = Math.PI/2
             this.scene.add(this.polegroup)
         },
-
         addPlate()
         {
             this.plategroup = new THREE.Group()
@@ -694,7 +674,6 @@ export default {
             this.plategroup.position.set(0,10,30)
             this.scene.add(this.plategroup)
         },
-
         addRod(){
             var rod = new THREE.CylinderGeometry(3, 3,300,20)
             var cylinderMat = new THREE.MeshPhongMaterial({
@@ -706,7 +685,6 @@ export default {
             this.rodmesh.position.set(150,-90,60)
             this.scene.add(this.rodmesh)
         },
-
         //this.group_trans
         addTransparentPlate(){
             this.group_trans = new THREE.Group();
@@ -715,16 +693,15 @@ export default {
             var mesh = new THREE.Mesh(obj,material);
             mesh.rotation.x = Math.PI/2;
          
-            var box = new THREE.BoxGeometry( 14, 2 ,2 );
-            this.light1 = new THREE.PointLight( 0x000000, 2, 25);
+            var box = new THREE.BoxGeometry( 14, 0.5 ,2 );
+            this.light1 = new THREE.PointLight( 0x000000, 1, 25);
             this.light1mesh = new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242} ) )
             this.light1.add( this.light1mesh );
-            this.light2 = new THREE.PointLight( 0x000000, 2, 25);
+            this.light2 = new THREE.PointLight( 0x000000, 1, 25);
             this.light2mesh =  new THREE.Mesh( box, new THREE.MeshBasicMaterial( { color: 0x424242 } ) ) 
             this.light2.add(this.light2mesh);
             this.light1.position.set(-50,0,0);
             this.light2.position.set(50,0,0);//长条灯
-
             this.group_trans.add(mesh);
             this.group_trans.add(this.light1);
             this.group_trans.add(this.light2); 
@@ -732,7 +709,6 @@ export default {
             this.scene.add(this.group_trans);
             
         },
-
         //闪光灯
         addFlask(){
             //添加闪光灯
@@ -742,7 +718,6 @@ export default {
             mesh.position.set(292,-150,110)
             this.scene.add(mesh);
         },
-
         //改变闪光颜色
         changeLightColor(c1,c2){
             //不亮 this.changeLightColor(0x000000, 0x424242);
@@ -752,7 +727,16 @@ export default {
             this.light2.color.set(c1);
             this.light2mesh.material.color.set(c2);
         },
-
+        changeGateColor(){
+            if(this.theta_end*this.theta_last<0){
+                this.light3mesh.material.color.set(0xffffff);
+                this.light3.color.set(0xc4342d);
+            }
+            else{
+                this.light3mesh.material.color.set(0x424242);
+                this.light3.color.set(0x000000);
+            }
+        },
         addListener(){
             var onWindowResize = ()=> {
                 this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -772,11 +756,11 @@ export default {
                 this.button2='fa fa-pause'
                 this.button2text='暂停'
             }
-
             {
                 switch (this.controls.vibration_type) {
                     case '自由振动':
                         this.disabledGuiGroup1();
+                        this.count = 1;
                         break;
                     case '阻尼振动':
                         this.disabledGuiGroup2();
@@ -802,7 +786,6 @@ export default {
                 this.is_pause=false
             }   
         },
-
         stop(){
             this.enabledGui0()
             //所有情况按钮都会这样变化
@@ -810,18 +793,18 @@ export default {
             this.button2type=true
             this.button2='fa fa-pause'
             this.button2text='暂停'
+            this.is_pause = false
             //所有情况弹簧归零都一样
             this.scene.remove(this.stringmesh)
             this.addHelix(6.5*Math.PI,-Math.PI/2-0);
-            
+            //转盘角度归0
+            this.plate180.rotateY(-this.theta_end)
+            this.theta_end=0
+            this.t = 0
+            this.theta_last = 0
+            this.w_last=0
+            this.controls.amplitude = '0'
             if(this.controls.vibration_type=='自由振动'){
-                //转盘角度归0
-                {
-                    this.plate180.rotateY(-this.theta_end)
-                    this.theta_end=0
-                    this.t = 0
-                    this.theta_last = 0
-                }
                 //gui回到原样
                 {
                     this.controls.theta_degree = 0
@@ -829,13 +812,6 @@ export default {
                 }   
             }   
             else if( this.controls.vibration_type == '阻尼振动'){
-                //转盘角度归0
-                {
-                    this.plate180.rotateY(-this.theta_end)
-                    this.theta_end=0
-                    this.t = 0
-                    this.theta_last = 0
-                }
                 //gui回到原样
                 {
                     this.controls.theta_degree = 0
@@ -853,13 +829,6 @@ export default {
                 }   
             }
             else if( this.controls.vibration_type == '受迫振动'){
-                //转盘角度归0 
-                {
-                    this.plate180.rotateY(-this.theta_end)
-                    this.theta_end=0
-                    this.t = 0
-                    this.theta_last = 0
-                }
                 //杆件回正
                 {
                     this.rodmesh.rotateZ(-this.rodmesh_rotation)
@@ -893,12 +862,16 @@ export default {
                 // power:false,
                 beta:0.0543,
                 theta_degree:0,//初始角度为0
-                powerv:this.wf/2/Math.PI-0.1,//电机频率
+                powerv:this.wf/2/Math.PI,//电机频率 this.wf/2/Math.PI-0.1
                 phi0:Math.PI/2,//初相位
+                amplitude:'0',
                 measure:()=>{
                     if(this.button1type == true){
                         this.showtable = true;          
                     }
+                },
+                flash:()=>{
+                    this.openflash = 1;
                 }
             }
             this.gui0 = this.gui.add(this.controls,'vibration_type',['自由振动','阻尼振动','受迫振动']).name("振动类别");
@@ -906,6 +879,8 @@ export default {
         addGui_group1(){
             this.gui_group1 = this.gui.addFolder("自由振动");
             this.theta_degree = this.gui_group1.add(this.controls,"theta_degree",-170,170).name("摆轮初始角度(°)").listen();
+            this.amplitude = this.gui_group1.add(this.controls,"amplitude","0").name("振幅").listen()
+            this.amplitude.domElement.style.pointerEvents = "none"
             this.gui_group1.open();
         },
         disabledGuiGroup1(){
@@ -949,6 +924,9 @@ export default {
             this.gui_group3 = this.gui.addFolder("受迫振动");
             this.gui_group3.add(this.controls,"powerv",this.wf/2/Math.PI-0.1,this.wf/2/Math.PI+0.1).name("电机频率").listen();
             this.beta = this.gui_group3.add(this.controls,"beta",{'阻尼1':0.0543,'阻尼2':0.0554,'阻尼3':0.0571}).name('阻尼系数').listen();
+            this.amplitude = this.gui_group3.add(this.controls,"amplitude","0").name("振幅").listen()
+            this.amplitude.domElement.style.pointerEvents = "none"
+            this.button_gui = this.gui_group3.add(this.controls,'flash').name('开启闪光灯').listen();
             this.gui_group3.open();
         },
         disabledGuiGroup3(){
@@ -987,9 +965,8 @@ export default {
         {
             this.$router.push(path);
         },
-
        
-        setEcharts(array1,array2,array3,text)
+        setEcharts(array1,array2,text)
         {
             var option = {
                 title: {
@@ -1002,7 +979,7 @@ export default {
                     trigger: 'axis'
                 },
                 legend: {
-                    data:['阻尼1', '阻尼2', '阻尼3'],
+                    data:['摆轮', '电机'],
                     textStyle:{
                         color: "#fff"
                     }
@@ -1018,24 +995,19 @@ export default {
                 },
                 series: [
                 {
-                    name:'阻尼1',
+                    name:'摆轮',
                     data: array1,
                     type: 'line',
-                    smooth: true
+                    smooth: true,
+                    color:'blue'
                 },
                 {
-                    name:'阻尼2',
+                    name:'电机',
                     data: array2,
                     type: 'line',
-                    smooth: true
-                },
-                {
-                    name:'阻尼3',
-                    data: array3,
-                    type: 'line',
-                    smooth: true
-                },
-                ]
+                    smooth: true,
+                    color:'yellow'
+                }]
             };
             return option;
         },
@@ -1044,7 +1016,6 @@ export default {
             this.init();
             // this.myChart=this.$echarts.init(document.getElementById('myecharts'));
             this.echarts1=this.$echarts.init(document.getElementById('echarts1'));
-            this.echarts2=this.$echarts.init(document.getElementById('echarts2'));
         },
         destroyed()
         {
@@ -1057,5 +1028,4 @@ export default {
         }
     
 }
-
 </script>
