@@ -28,9 +28,11 @@
 .text {
     font-size: 14px;
   }
+
   .item {
     margin-bottom: 18px;
   }
+
   .clearfix:before,
   .clearfix:after {
     display: table;
@@ -48,7 +50,9 @@
 <script>
 import * as THREE from 'three'
 import dat from 'dat.gui'
+import { WEBVR } from 'three/examples/jsm/vr/WebVR.js';
 export default {
+
     data(){
         return{
             scene:null,
@@ -65,20 +69,21 @@ export default {
             show:true,
             show1:true,
             show2:true,
+
             controls:null,//GUI界面
             barwide:1,
-            angleA:-Math.PI/2,//原动件（匀速转动的杆）的夹角
-            angleB:0,//另一杆的夹角 == 块的夹角
+            angleA:Math.PI,//原动件（匀速转动的杆）的夹角
+            angleB:-Math.PI/6,//另一杆的夹角 == 块的夹角
             xlist:[],
             vlist:[],
             alist:[],
             extrudeSettings : {
-                bevelEnabled: false, 
-                steps: 1,
-                depth: 0.5, //extrusion depth, don't define an extrudePath
-                material:0, //material index of the front and back face
-                extrudeMaterial : 1 //material index of the side faces            
-            }
+                            bevelEnabled: false, 
+                            steps: 1,
+                            depth: 0.5, //extrusion depth, don't define an extrudePath
+                            material:0, //material index of the front and back face
+                            extrudeMaterial : 1 //material index of the side faces            
+                        },
             }
     },
     methods:{
@@ -90,7 +95,7 @@ export default {
             
             this.AddCamera();
             this.AddRender();
-            this.AddOrbitControls();
+            //this.AddOrbitControls();
             this.Gui();
             this.Addfloor();
             this.Addlight();
@@ -98,41 +103,59 @@ export default {
             this.AddAxis();
             this.AddLine();
             this.Addshortbar();
-            this.Addlongbar();
+
+            this.longbar = this.Addbar(50*this.barwide,-10*this.barwide,10*this.barwide,-this.barwide/4);
+            var rotateangle = -Math.PI/6;
+            this.longbar.rotateZ(rotateangle);
+
             //滑块
-            this.swingblock = this.Addswingblock(20*this.barwide,0,0);
+            this.swingblock = this.Addswingblock(10*this.barwide*(1-Math.tan(Math.abs(rotateangle)))/Math.tan(Math.abs(rotateangle)),0,0);
+            this.swingblock.rotateZ(rotateangle);
             
-            this.animate();
+            this.renderer.setAnimationLoop(this.animate);   
         },
          
         AddScene()
         {
             this.scene=new THREE.Scene();
         },
+
         AddCamera()
         {
-            this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 1000 );
-            this.camera.position.x = 40;
-            this.camera.position.y = 20;
-            this.camera.position.z = 40;
+            window.addEventListener( 'resize', this.onWindowResize, false );
+            this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,1000);
+            var user = new THREE.Group();
+            user.add( this.camera );
+            user.position.set(5,0,40);
+            this.scene.add(user);
+        },
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize( window.innerWidth, window.innerHeight );
         },
         AddRender()
         {
             this.renderer=new THREE.WebGLRenderer({antialias : true});
             this.renderer.setClearColor(0x010101);
+            this.renderer.setPixelRatio( window.devicePixelRatio );
             this.renderer.setSize(window.innerWidth,window.innerHeight);
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
+            this.renderer.vr.enabled = true;
+            document.body.appendChild( WEBVR.createButton(this.renderer ) );
         },
         AddOrbitControls()
         {
             var OrbitControls = require('three-orbit-controls')(THREE);
             var obcontrol = new OrbitControls(this.camera,this.renderer.domElement);
         },
+
         AddAxis()
         {
             this.axis=new THREE.AxesHelper(200);
             this.scene.add(this.axis);
         },
+
         Addfloor()
         {
             var floorMat = new THREE.MeshStandardMaterial( {
@@ -164,42 +187,48 @@ export default {
             bulbLight.castShadow = true;
             this.scene.add( bulbLight );
         },
+
+        Addbar(barlength,x,y,z)
+        {
+            var groupbar=new THREE.Group(); 
+            var bar=this.drawBarGeometry(barlength);  
+            //加上半圆                                                   
+            var upFillet=this.DrawFillet(0.5*this.barwide);
+            //加下半圆
+            var downFillet=this.DrawFillet(0.5*this.barwide);
+            upFillet.position.y=barlength;
+            downFillet.rotateZ(Math.PI);
+            groupbar.add(bar);
+            groupbar.add(upFillet);
+            groupbar.add(downFillet);
+            groupbar.position.set(x,y,z);
+            groupbar.rotateZ(-0.5*Math.PI);
+            
+            this.scene.add(groupbar);
+            return groupbar;
+        },
+
         Addshortbar()
         {
             var groupbar=new THREE.Group(); 
-            var bar=this.drawBarGeometry(10*this.barwide);                                                
+            var bar=this.drawBarGeometry(10*this.barwide);                                                    
             var upFillet=this.DrawFillet(0.5*this.barwide);
             var downFillet=this.DrawFillet(0.5*this.barwide);
             upFillet.position.y=10*this.barwide;
             downFillet.rotateZ(Math.PI);
-            this.short_bar=bar;
-            this.shorthalfcircle=upFillet;
-            groupbar.add(this.short_bar);
+            this.bar=bar;
+            this.halfcircle=upFillet;
+            groupbar.add(this.bar);
             groupbar.add(upFillet);
             groupbar.add(downFillet);
-            groupbar.position.set(0,5*this.barwide,this.barwide/4);
-            groupbar.rotateZ(-Math.PI);
+            groupbar.position.set(0,10*this.barwide,this.barwide/4);
+            groupbar.rotateZ(-0.5*Math.PI);
             this.scene.add(groupbar);
+
             this.shortbar = groupbar;
+            this.shortbar.rotateZ(Math.PI);
         },
-        Addlongbar()
-        {
-            var groupbar=new THREE.Group(); 
-            var bar=this.drawBarGeometry(20*this.barwide);                                                    
-            var upFillet=this.DrawFillet(0.5*this.barwide);
-            var downFillet=this.DrawFillet(0.5*this.barwide);
-            upFillet.position.y=20*this.barwide;
-            downFillet.rotateZ(Math.PI);
-            this.long_bar=bar;
-            this.longhalfcircle=upFillet;
-            groupbar.add(this.long_bar);
-            groupbar.add(upFillet);
-            groupbar.add(downFillet);
-            groupbar.position.set(0,0,-this.barwide/4);
-            groupbar.rotateZ(-Math.PI/2);
-            this.scene.add(groupbar);
-            this.longbar = groupbar;
-        },
+
         drawBarGeometry(l)
         {
             var geometry=new THREE.Shape();
@@ -213,6 +242,7 @@ export default {
             var meshed=new THREE.Mesh(stretched,this.Addwoodtexture());
             return meshed;
         },
+
         DrawFillet(r)
         {
             var pointslist=[];
@@ -229,7 +259,9 @@ export default {
             var meshed=new THREE.Mesh(stretched,this.Addwoodtexture());
             return meshed;
         },
+
         
+
         Addwoodtexture()
         {
             var floorMat = new THREE.MeshStandardMaterial( {
@@ -249,6 +281,7 @@ export default {
             } );
             return floorMat;
         },
+
         AddLine()
         {
             var material = new THREE.LineDashedMaterial({
@@ -256,13 +289,15 @@ export default {
                 dashSize:1,
                 gapSize:2
             })
-            var geometry = new THREE.Geometry();
-            geometry.vertices.push(new THREE.Vector3(-10*this.barwide,0,0));
-            geometry.vertices.push(new THREE.Vector3(50*this.barwide,0,0));
-            var line=new THREE.Line(geometry,material);
+            var geometry = new THREE.Geometry();
+            geometry.vertices.push(new THREE.Vector3(-20*this.barwide,0,0));
+            geometry.vertices.push(new THREE.Vector3(20*this.barwide,0,0));
+            var line=new THREE.Line(geometry,material);
             line.computeLineDistances();
             this.scene.add(line);
+
         },
+
         Addswingblock(x,y,z)
         {
             var geometry = new THREE.CubeGeometry(5*this.barwide,2*this.barwide,3/2*this.barwide);
@@ -281,15 +316,17 @@ export default {
         {   
             this.shortbar.rotateZ(this.controls.speed);
             this.angleA+=this.controls.speed;
+
             if(this.angleA > 2*Math.PI)this.angleA-=2*Math.PI;
             if(this.angleA < 0)this.angleA+=2*Math.PI;
+
             var x0=0,y0=this.controls.e;
             var x1=x0+this.controls.a*Math.cos(this.angleA);
             var y1=y0+this.controls.a*Math.sin(this.angleA);
-            var x2=x1+Math.sqrt(this.controls.b*this.controls.b-y1*y1),y2=0;
+            var x2=this.controls.d,y2=0;
             var angleBB=Math.acos((x2-x1)/Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)));
             if(y2<y1)angleBB=-angleBB;
-            this.xlist.push(x2);
+            this.xlist.push(angleBB);
             if(this.xlist.length>100)
             {
                 this.xlist.splice(0, 1);
@@ -301,6 +338,7 @@ export default {
                     this.vlist.splice(0, 1);
                 }
             }
+
             if(this.vlist.length>=2){
                 this.alist.push(this.vlist[this.vlist.length-1]-this.vlist[this.vlist.length-2]);
                 if(this.alist.length>100)
@@ -310,36 +348,37 @@ export default {
             }
             if(this.alist.length>0)
             {
-                this.myChart.setOption(this.setEcharts(this.xlist,'#dd0d29','从动件位移'));
-                this.myChart1.setOption(this.setEcharts(this.vlist,'#0e4bef','从动件速度'));
-                this.myChart2.setOption(this.setEcharts(this.alist,'#0b9909','从动件加速度'));
+                this.myChart.setOption(this.setEcharts(this.xlist,'#dd0d29','从动件角位移'));
+                this.myChart1.setOption(this.setEcharts(this.vlist,'#0e4bef','从动件角速度'));
+                this.myChart2.setOption(this.setEcharts(this.alist,'#0b9909','从动件角加速度'));
             }
-            this.short_bar.scale.y=this.controls.a/10;
-            this.shorthalfcircle.position.set(0,this.controls.a,0);
-            this.shortbar.position.set(x0,y0,this.barwide/4)
-            this.swingblock.position.set(x2,y2,0);
+
+            this.bar.scale.y=this.controls.a/10;
+            this.halfcircle.position.set(0,this.controls.a,0);
+            this.shortbar.position.set(x0,y0,this.barwide/4);
             this.longbar.position.set(x1,y1,-this.barwide/4);
-            this.long_bar.scale.y=this.controls.b/20;
-            this.longhalfcircle.position.set(0,this.controls.b,0);
+            this.swingblock.position.set(x2,y2,0);
             this.longbar.rotateZ(angleBB-this.angleB);
+            this.swingblock.rotateZ(angleBB-this.angleB);
             this.angleB=angleBB;
+
             this.renderer.render( this.scene, this.camera );
-            requestAnimationFrame(this.animate);
         },
         Gui()
         {
+            var rotateangle=-Math.PI/6;
             this.controls=
             {
                 speed:0,
-                e:5*this.barwide,
+                e:10*this.barwide,
                 a:10*this.barwide,
-                b:20*this.barwide,
+                d:10*this.barwide*(1-Math.tan(Math.abs(rotateangle)))/Math.tan(Math.abs(rotateangle))
             }
             var gui=new dat.GUI();
             //LongestPole为长度
-            gui.add(this.controls,'e',-5*this.barwide,5*this.barwide).name("偏心距");
-            gui.add(this.controls,'a',0,15*this.barwide).name("原动件长度");
-            gui.add(this.controls,'b',20*this.barwide,30*this.barwide).name("连杆长度");
+            gui.add(this.controls,'e',-20*this.barwide,20*this.barwide).name("偏心距");
+            gui.add(this.controls,'a',0,20*this.barwide).name("原动件长度");
+            gui.add(this.controls,'d',-20*this.barwide,20*this.barwide).name("机架间距");
             gui.add(this.controls,'speed',-0.1,0.1).name("原动件角速度");
         },
         //speedFar 最大的圆自转速度 speedMiddle 最小圆转速 omegaH 公转速度 omega2 自转速度
@@ -347,6 +386,7 @@ export default {
         {
             this.$router.push(path);
         },
+
         AddSkyBox()
         {
             this.skybox=new THREE.BoxBufferGeometry(5000,5000,5000);
@@ -374,7 +414,6 @@ export default {
 	        	        color: '#faf0e6'
 	      	        }
                 },
-                
                 xAxis: {
                     type: 'category',
                     data: []
@@ -411,4 +450,5 @@ export default {
         }
     
 }
+
 </script>

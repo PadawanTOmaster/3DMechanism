@@ -32,9 +32,11 @@
 .text {
     font-size: 14px;
   }
+
   .item {
     margin-bottom: 18px;
   }
+
   .clearfix:before,
   .clearfix:after {
     display: table;
@@ -53,7 +55,10 @@
 import * as THREE from 'three'
 import dat from 'dat.gui'
 import {MTLLoader, OBJLoader} from 'three-obj-mtl-loader'
+import {ViveController} from "three/examples/jsm/vr/ViveController.js"
+import { WEBVR } from 'three/examples/jsm/vr/WebVR.js';
 export default {
+
     data(){
         return{
             scene:null,
@@ -95,20 +100,26 @@ export default {
         
         init()
         {
-            var OrbitControls = require('three-orbit-controls')(THREE);
+            //var OrbitControls = require('three-orbit-controls')(THREE);
             this.scene=new THREE.Scene();
             //camera set 
-            this.camera=new THREE.PerspectiveCamera( 45, window.innerWidth/window.innerHeight,0.1,10000);
-            this.camera.position.x=30;
-            this.camera.position.y=0;
-            this.camera.position.z=30;//40 40 40 //0 150 400
-            this.camera.lookAt(0,0,0);
+           
+            this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,10000);
+            var user = new THREE.Group();
+            user.add( this.camera );
+            user.position.set(20,-2,10);
+            user.rotation.y = Math.PI*0.33;
+            this.scene.add(user);
+            window.addEventListener( 'resize', this.onWindowResize, false );
             //render set
             this.renderer=new THREE.WebGLRenderer({antialias : true});
             this.renderer.setClearColor(0xc7c7bf);
             this.renderer.setSize(window.innerWidth,window.innerHeight);
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
-            var obcontrols = new OrbitControls(this.camera,this.renderer.domElement);
+            //var obcontrols = new OrbitControls(this.camera,this.renderer.domElement);
+            this.renderer.setPixelRatio( window.devicePixelRatio );
+            document.body.appendChild( WEBVR.createButton(this.renderer ) );
+            this.renderer.vr.enabled = true;
             this.Gui();
             this.initLight();
             //coordinate axis
@@ -135,18 +146,24 @@ export default {
                         this.middle.position.set(0,this.middleR,0)
                         this.scene.add(this.middle)
                         this.addSkybox()
-                        requestAnimationFrame(this.animate)
+                        this.renderer.setAnimationLoop(this.animate)
                     })
                 })
             })
             
             
         },
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize( window.innerWidth, window.innerHeight );
+        },
         initLight()
         {
           var pointLight = new THREE.PointLight( 0x2a4895, 1);
           pointLight.position.set( 100, 100, 100 );
           this.scene.add( pointLight );
+
           var pointLight = new THREE.PointLight( 0xffaaaa, 1);
           pointLight.position.set( -100, 100, 100 );
           this.scene.add( pointLight );
@@ -176,7 +193,6 @@ export default {
             this.mesh.rotation.y+=0.0003;
             //渲染
             this.renderer.render( this.scene, this.camera );
-            requestAnimationFrame(this.animate);
         },
         Gui()
         {
@@ -308,4 +324,5 @@ export default {
         }
     
 }
+
 </script>

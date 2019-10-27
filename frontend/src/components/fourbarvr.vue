@@ -134,8 +134,12 @@
 
 <script>
 import * as THREE from 'three'
+import {ViveController} from "three/examples/jsm/vr/ViveController.js"
+import { WEBVR } from 'three/examples/jsm/vr/WebVR.js';
 import dat from 'dat.gui'
+
 export default {
+
     data(){
         return{
             dialogVisible:true,
@@ -178,6 +182,7 @@ export default {
             show1:true,
             show2:true,
             size:10,
+
             controls:null,//GUI界面
             extrudeSettings : {
                             bevelEnabled: false, 
@@ -205,42 +210,41 @@ export default {
             bottomPole:140,
             MidPole:200,
             MidPole:200,
+            distanceY:0,
             constwords:'<span style="color:#0047ab;">四杆机构分为：<br>1.曲柄连杆机构<br>2.双曲柄机构<br>3.双摇杆机构<br><br>机架：固定不动的构件。<br>摇杆：只能在某一角度范围内往复摆动的构件<br>曲柄：能够做整周回转的构件<br>连架杆：直接与机架链接的构件<br>连杆：不直接与机架连接的构件<br><br></span>'
             }
     },
     methods:{
         
         init()
-        {
-            
+        {            
             this.Gui();
             this.scene=new THREE.Scene();
             
             this.group1X=-this.bottomPole/2;
             this.group2X=this.bottomPole/2;
-            //camera set 
-            this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,10000);
-            this.camera.position.x=400;
-            this.camera.position.y=200;
-            this.camera.position.z=400;//40 40 40 //0 150 400
-            this.camera.lookAt(0,0,0);
-            
             //render set
             this.renderer=new THREE.WebGLRenderer({antialias : true});
             this.renderer.setClearColor(0xc7c7bf);
             this.renderer.setSize(window.innerWidth,window.innerHeight);
+
+            //camera set 
+            this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,10000);
+            var user = new THREE.Group();
+            user.add( this.camera );
+            user.position.set(50,50,300)
+            this.scene.add(user);
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
-            var OrbitControls = require('three-orbit-controls')(THREE);
-            var obcontrol = new OrbitControls(this.camera,this.renderer.domElement);
-            //coordinate axis
-            // this.axis=new THREE.AxesHelper(200);
-            // this.scene.add(this.axis);
-            //X red Z blue Y green
-            //long 长度
-            //wide 宽度
-            //high 高
+            this.renderer.setPixelRatio( window.devicePixelRatio );
+            document.body.appendChild( WEBVR.createButton(this.renderer ) );
+            this.renderer.vr.enabled = true;
+            
             //fileurl 纹理图位置 '../../static/images/crate.gif'
-            this.scene.add(this.notmovePole=this.Cubiod(1,this.size,this.size,'../../static/images/crate.gif'));//其中 long是可以通过gui界面更改的值
+            this.notmovePole=this.Cubiod(1,this.size,this.size,'../../static/images/crate.gif')
+            this.notmovePole.position.x = 0;
+            this.notmovePole.position.y = 0;
+            this.notmovePole.position.z = 0
+            this.scene.add(this.notmovePole);//其中 long是可以通过gui界面更改的值
             //添加一个group组合对象，封装左杆和上半圆
             this.group1=new THREE.Group();                                       
             //加左杆上半圆                                                        
@@ -253,7 +257,7 @@ export default {
             this.group1.add(this.LeftUpCircle)
             this.group1.add(this.shapeLeft);
             this.group1.rotateZ(-1/2*Math.PI);
-            this.group1.position.set(-this.bottomPole/2,0,1/2*this.size);
+            this.group1.position.set(-this.bottomPole/2,this.distanceY,1/2*this.size);
             this.scene.add(this.group1);
             // end group1
             
@@ -268,7 +272,7 @@ export default {
             this.group2.add(this.shapeRight);
             this.group2.add(this.RightUpCircle);
             this.scene.add(this.group2);
-            this.group2.position.set(this.bottomPole/2,0,1/2*this.size);
+            this.group2.position.set(this.bottomPole/2,this.distanceY,1/2*this.size);
             this.group2.rotateZ(-1/2*Math.PI);
             //end group2 
             //group3
@@ -281,8 +285,9 @@ export default {
             this.group3.add(this.shapemiddle);
             this.group3.add(this.middleUpCircle);
             this.scene.add(this.group3);
-            this.group3.position.set(0,0,0);
+            this.group3.position.set(0,this.distanceY,0);
             this.group3.rotateZ(-1/2*Math.PI);
+
             while(true)
             {
                 if(this.angleA>2*Math.PI)
@@ -314,8 +319,14 @@ export default {
             this.mesh.position.y=0;
             this.mesh.position.z=0;
             this.scene.add(this.mesh);
-            //skybox end
-            requestAnimationFrame(this.animate);               
+            //skybox end        
+            window.addEventListener( 'resize', this.onWindowResize, false );
+            this.renderer.setAnimationLoop(this.animate);     
+        },
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize( window.innerWidth, window.innerHeight );
         },
         Gui()
         {
@@ -325,17 +336,18 @@ export default {
                 //注意，这个rotatespeed是个角度
                 rotatespeed:0, 
                 middlePole:this.MidPole,
+
             }
             var gui=new dat.GUI();
             //LongestPole为长度
             gui.add(this.controls,'rightPole',Math.abs(this.bottomPole-this.leftPole)/2,this.bottomPole+this.leftPole).name("从动件长度");
             gui.add(this.controls,'middlePole',Math.abs(this.bottomPole-this.leftPole)/2,this.bottomPole+this.leftPole).name("连杆长度");
             gui.add(this.controls,'rotatespeed',-0.5,0.5).name("转速");
+
         },
         
         animate() 
         {   
-            
             this.angleA+=this.controls.rotatespeed*this.flag;
             
             if(this.angleA>2*Math.PI)
@@ -357,7 +369,7 @@ export default {
                 this.angleA-=this.controls.rotatespeed*this.flag;
                 this.flag=-this.flag;
                 
-                requestAnimationFrame(this.animate);
+                
                 return;
             }
            //右面圆
@@ -399,6 +411,7 @@ export default {
                     this.vlist.splice(0, 1);
                 }
             }
+
             if(this.vlist.length>=2){
                 this.alist.push(this.vlist[this.vlist.length-1]-this.vlist[this.vlist.length-2]);
                 if(this.alist.length>100)
@@ -469,7 +482,7 @@ export default {
             this.mesh.rotation.y+=0.0003;
             //渲染
             this.renderer.render( this.scene, this.camera );
-            requestAnimationFrame(this.animate);
+           
         },
         SatisfyTwoConditions()//是它下面两个函数的整合
         {
@@ -649,4 +662,5 @@ export default {
             }
         }
 }
+
 </script>

@@ -78,6 +78,8 @@
 <script>
 import * as THREE from 'three'
 import dat from 'dat.gui'
+import {ViveController} from "three/examples/jsm/vr/ViveController.js"
+import { WEBVR } from 'three/examples/jsm/vr/WebVR.js';
 var controls={};
 var forceValueList=[];
 var forceDistanceList=[];
@@ -184,14 +186,13 @@ export default {
             this.AddScene();
             this.AddCamera();
             this.AddRender();
-            this.AddOrbitControls();
             this.AddAxis();
             this.AddSkyBox();
             this.AddPlaneGeometry();
             this.AddLight();
             this.AddBarShadow();
             this.AddBar();
-            requestAnimationFrame(this.animate);               
+            this.renderer.setAnimationLoop(this.animate);             
         },
         AddGui()
         {
@@ -289,18 +290,28 @@ export default {
         },
         AddCamera()
         {
+            window.addEventListener( 'resize', this.onWindowResize, false );
             this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,10000);
-            this.camera.position.x=-560;
-            this.camera.position.y=240;
-            this.camera.position.z=300;//40 40 40 //0 150 400
-            this.camera.lookAt(0,0,0);
+            var user = new THREE.Group();
+            user.add( this.camera );
+            user.rotation.y = -1/5*Math.PI;
+            user.position.set(-210,24,480);
+            this.scene.add(user);
+        },
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize( window.innerWidth, window.innerHeight );
         },
         AddRender()
         {
             this.renderer=new THREE.WebGLRenderer({antialias : true});
             this.renderer.setClearColor(0xc7c7bf);
+            this.renderer.setPixelRatio( window.devicePixelRatio );
             this.renderer.setSize(window.innerWidth,window.innerHeight);
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
+            this.renderer.vr.enabled = true;
+            document.body.appendChild( WEBVR.createButton(this.renderer ) );
         },
         AddOrbitControls()
         {
@@ -887,7 +898,6 @@ export default {
             }
             this.RotateSkybox();
             this.RenderSceneInLoop();
-            requestAnimationFrame(this.animate);
         },
         RotateSkybox()
         {

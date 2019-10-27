@@ -48,6 +48,7 @@
 <script>
 import * as THREE from 'three'
 import dat from 'dat.gui'
+import { WEBVR } from 'three/examples/jsm/vr/WebVR.js';
 export default {
     data(){
         return{
@@ -90,11 +91,10 @@ export default {
             
             this.AddCamera();
             this.AddRender();
-            this.AddOrbitControls();
             this.Gui();
             this.Addfloor();
             this.Addlight();
-            //X red Z blue Y green	
+            //X red Z blue Y green  
             this.AddAxis();
             this.AddLine();
             this.Addshortbar();
@@ -102,7 +102,7 @@ export default {
             //滑块
             this.swingblock = this.Addswingblock(20*this.barwide,0,0);
             
-            this.animate();
+            this.renderer.setAnimationLoop(this.animate);   
         },
          
         AddScene()
@@ -111,17 +111,27 @@ export default {
         },
         AddCamera()
         {
-            this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 1000 );
-            this.camera.position.x = 40;
-            this.camera.position.y = 20;
-            this.camera.position.z = 40;
+            window.addEventListener( 'resize', this.onWindowResize, false );
+            this.camera=new THREE.PerspectiveCamera( 50, window.innerWidth/window.innerHeight,0.1,1000);
+            var user = new THREE.Group();
+            user.add( this.camera );
+            user.position.set(5,0,40);
+            this.scene.add(user);
+        },
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize( window.innerWidth, window.innerHeight );
         },
         AddRender()
         {
             this.renderer=new THREE.WebGLRenderer({antialias : true});
             this.renderer.setClearColor(0x010101);
+            this.renderer.setPixelRatio( window.devicePixelRatio );
             this.renderer.setSize(window.innerWidth,window.innerHeight);
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
+            this.renderer.vr.enabled = true;
+            document.body.appendChild( WEBVR.createButton(this.renderer ) );
         },
         AddOrbitControls()
         {
@@ -167,7 +177,7 @@ export default {
         Addshortbar()
         {
             var groupbar=new THREE.Group(); 
-            var bar=this.drawBarGeometry(10*this.barwide);                                                
+            var bar=this.drawBarGeometry(10*this.barwide);                                                    
             var upFillet=this.DrawFillet(0.5*this.barwide);
             var downFillet=this.DrawFillet(0.5*this.barwide);
             upFillet.position.y=10*this.barwide;
@@ -324,7 +334,6 @@ export default {
             this.longbar.rotateZ(angleBB-this.angleB);
             this.angleB=angleBB;
             this.renderer.render( this.scene, this.camera );
-            requestAnimationFrame(this.animate);
         },
         Gui()
         {
@@ -371,8 +380,8 @@ export default {
                 title: {
                     text: text,
                     textStyle: {
-	        	        color: '#faf0e6'
-	      	        }
+                        color: '#faf0e6'
+                    }
                 },
                 
                 xAxis: {

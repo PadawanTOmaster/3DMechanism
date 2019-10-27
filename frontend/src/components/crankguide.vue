@@ -30,11 +30,9 @@
 .text {
     font-size: 14px;
   }
-
   .item {
     margin-bottom: 18px;
   }
-
   .clearfix:before,
   .clearfix:after {
     display: table;
@@ -52,9 +50,7 @@
 <script>
 import * as THREE from 'three'
 import dat from 'dat.gui'
-
 export default {
-
     data(){
         return{
             scene:null,
@@ -84,7 +80,7 @@ export default {
             extrudeSettings : {
                             bevelEnabled: false, 
                             steps: 1,
-                            depth: this.barwide/2, //extrusion depth, don't define an extrudePath
+                            depth: 0.5, //extrusion depth, don't define an extrudePath
                             material:0, //material index of the front and back face
                             extrudeMaterial : 1 //material index of the side faces            
                         }
@@ -118,7 +114,6 @@ export default {
         {
             this.scene=new THREE.Scene();
         },
-
         AddCamera()
         {
             this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 1000 );
@@ -126,7 +121,6 @@ export default {
             this.camera.position.y = 20;
             this.camera.position.z = 40;
         },
-
         AddRender()
         {
             this.renderer=new THREE.WebGLRenderer({antialias : true});
@@ -134,19 +128,16 @@ export default {
             this.renderer.setSize(window.innerWidth,window.innerHeight);
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
         },
-
         AddOrbitControls()
         {
             var OrbitControls = require('three-orbit-controls')(THREE);
             var obcontrol = new OrbitControls(this.camera,this.renderer.domElement);
         },
-
         AddAxis()
         {
             this.axis=new THREE.AxesHelper(200);
             this.scene.add(this.axis);
         },
-
         Addfloor()
         {
             var floorMat = new THREE.MeshStandardMaterial( {
@@ -178,7 +169,6 @@ export default {
             bulbLight.castShadow = true;
             this.scene.add( bulbLight );
         },
-
         Addshortbar()
         {
             var groupbar=new THREE.Group(); 
@@ -197,7 +187,6 @@ export default {
             this.scene.add(groupbar);
             this.shortbar = groupbar;
         },
-
         Addlongbar()
         {
             var groupbar=new THREE.Group(); 
@@ -214,7 +203,6 @@ export default {
             this.scene.add(groupbar);
             this.longbar = groupbar;
         },
-
         drawBarGeometry(l)
         {
             var geometry=new THREE.Shape();
@@ -228,7 +216,6 @@ export default {
             var meshed=new THREE.Mesh(stretched,this.Addwoodtexture());
             return meshed;
         },
-
         DrawFillet(r)
         {
             var pointslist=[];
@@ -245,9 +232,7 @@ export default {
             var meshed=new THREE.Mesh(stretched,this.Addwoodtexture());
             return meshed;
         },
-
         
-
         Addwoodtexture()
         {
             var floorMat = new THREE.MeshStandardMaterial( {
@@ -267,7 +252,6 @@ export default {
             } );
             return floorMat;
         },
-
         AddLine(x1,y1,z1,x2,y2,z2)
         {
             var material = new THREE.LineDashedMaterial({
@@ -275,15 +259,14 @@ export default {
                 dashSize:1,
                 gapSize:2
             })
-            var geometry = new THREE.Geometry();
-            geometry.vertices.push(new THREE.Vector3(x1,y1,z1));
-            geometry.vertices.push(new THREE.Vector3(x2,y2,z2));
-            var line=new THREE.Line(geometry,material);
+            var geometry = new THREE.Geometry();
+            geometry.vertices.push(new THREE.Vector3(x1,y1,z1));
+            geometry.vertices.push(new THREE.Vector3(x2,y2,z2));
+            var line=new THREE.Line(geometry,material);
             line.computeLineDistances();
             this.scene.add(line);
             this.linemesh.push(line);
         },
-
         Addswingblock(x,y,z)
         {
             var geometry = new THREE.CubeGeometry(5*this.barwide,2*this.barwide,3/2*this.barwide);
@@ -303,10 +286,8 @@ export default {
         {   
             this.shortbar.rotateZ(this.controls.speed);
             this.angleA+=this.controls.speed;
-
             if(this.angleA > 2*Math.PI)this.angleA-=2*Math.PI;
             if(this.angleA < 0)this.angleA+=2*Math.PI;
-
             var x0=0,y0=this.controls.d;
             var x1=x0+this.controls.a*Math.cos(this.angleA);
             var y1=y0+this.controls.a*Math.sin(this.angleA);
@@ -324,7 +305,6 @@ export default {
                     this.vlist.splice(0, 1);
                 }
             }
-
             if(this.vlist.length>=2){
                 this.alist.push(this.vlist[this.vlist.length-1]-this.vlist[this.vlist.length-2]);
                 if(this.alist.length>100)
@@ -338,7 +318,6 @@ export default {
                 this.myChart1.setOption(this.setEcharts(this.vlist,'#0e4bef','从动件角速度'));
                 this.myChart2.setOption(this.setEcharts(this.alist,'#0b9909','从动件角加速度'));
             }
-
             this.short_bar.scale.y=this.controls.a/10;
             this.shorthalfcircle.position.set(0,this.controls.a,0);
             this.shortbar.position.set(x0,y0,-this.barwide/4);
@@ -394,7 +373,6 @@ export default {
         {
             this.$router.push(path);
         },
-
         AddSkyBox()
         {
             this.skybox=new THREE.BoxBufferGeometry(5000,5000,5000);
@@ -459,5 +437,4 @@ export default {
         }
     
 }
-
 </script>

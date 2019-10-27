@@ -2,24 +2,32 @@ import Vue from 'vue'
 import Router from 'vue-router'
 import Index from '@/components/Index'
 import homepage from '@/components/Homepage'
-import fourbar from '@/components/fourbar'
-import forcebar from '@/components/forcebar'
-import gear from '@/components/gear'
 import login from '@/components/login'
 import signup from '@/components/signup'
 import download from '@/components/download'
 import practice from '@/components/practice'
 import encyclopedia from '@/components/encyclopedia'
+import fourbar from '@/components/fourbar'
+import forcebar from '@/components/forcebar'
+import gear from '@/components/gear'
 import crankrocker from "@/components/crankrocker"
 import slidercrank from '@/components/slidercrank'
 import crankguide from '@/components/crankguide'
+import forceoscillation from '@/components/forceoscillation'
+import fourbarvr from '@/components/fourbarvr'
+import forcebarvr from '@/components/forcebarvr'
+import gearvr from '@/components/gearvr'
+import crankrockervr from "@/components/crankrockervr"
+import slidercrankvr from '@/components/slidercrankvr'
+import crankguidevr from '@/components/crankguidevr'
+import forceoscillationvr from '@/components/forceoscillationvr'
 import threed from '@/components/threed'
 import news from '@/components/news'
 import other from '@/components/other'
 import manage from '@/components/manage'
-import forceoscillation from '@/components/forceoscillation'
 import points from '@/components/points'
 import spectrometer from '@/components/spectrometer'
+
 Vue.use(Router)
 
 const router =  new Router({
@@ -40,9 +48,19 @@ const router =  new Router({
       component:fourbar
     },
     {
+      path: '/fourbarvr',
+      name: 'fourbarvr',
+      component: fourbarvr
+    },
+    {
       path:'/gear',
       name:'gear',
       component:gear
+    },
+    {
+      path: '/gearvr',
+      name: 'gearvr',
+      component: gearvr
     },
     {
       path:'/signup',
@@ -75,9 +93,19 @@ const router =  new Router({
       component:forcebar,
     },
     {
+      path: '/forcebarvr',
+      name: 'forcebarvr',
+      component: forcebarvr,
+    },
+    {
       path: '/crankrocker',
       name: 'crankrocker',
       component: crankrocker,
+    },
+    {
+      path: '/crankrockervr',
+      name: 'crankrockervr',
+      component: crankrockervr,
     },
     {
       path: '/slidercrank',
@@ -85,9 +113,19 @@ const router =  new Router({
       component:slidercrank,
     },
     {
+      path: '/slidercrankvr',
+      name: 'slidercrankvr',
+      component: slidercrankvr,
+    },
+    {
       path: '/crankguide',
       name: 'crankguide',
       component: crankguide,
+    },
+    {
+      path: '/crankguidevr',
+      name: 'crankguidevr',
+      component: crankguidevr,
     },
     {
       path:'/threed',
@@ -113,6 +151,11 @@ const router =  new Router({
       path: '/forceoscillation',
       name: 'forceoscillation',
       component: forceoscillation
+    },
+    {
+      path: '/forceoscillationvr',
+      name: 'forceoscillationvr',
+      component: forceoscillationvr
     },
     {
       path:'/points',
