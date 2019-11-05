@@ -426,7 +426,7 @@ export default {
                 //绘图
                 {
                     this.showGraphs=true
-                    this.echarts1.setOption(this.setEcharts(this.plate180graph_array,this.powergraph_array,'电机转盘相位曲线'));
+                    this.echarts1.setOption(this.setEcharts(this.plate180graph_array,this.powergraph_array,'电机摆轮相位曲线'));
                     //this.echarts2.setOption(this.setEcharts(this.Phi1array,this.Phi2array,this.Phi3array,'相频特征曲线'))  
                 }
                 this.last_powerv = this.controls.powerv;

@@ -95,8 +95,7 @@
               <div slot="header" class="clearfix">
                 <el-button style="float: right; padding: 3px 0" type="danger" @click="Topage('/spectrometer')">分光计</el-button>
               </div>
-              <router-link v-if='vr_switch==true' to="/forceoscillationvr" ><img src="../../static/images/dwsy.png" class="image"/></router-link>
-              <router-link v-else to="/forceoscillation"><img src="../../static/images/dwsy.png" class="image"/></router-link>
+              <router-link to="/spectrometer" ><img src="../../static/images/dwsy.png" class="image"/></router-link>
             </el-card>
           </el-col>
 
@@ -154,7 +153,7 @@
   
    data(){
      return{
-       vr_switch:true,
+       vr_switch:false,
      }
    },
    methods:{

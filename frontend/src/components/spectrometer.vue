@@ -66,8 +66,7 @@
 <script>
 import * as THREE from 'three'
 import dat from 'dat.gui'
-import {MTLLoader, OBJLoader} from 'three-obj-mtl-loader'
-
+import {STLLoader} from 'three/examples/jsm/loaders/STLLoader.js'
 
 export default {
 
@@ -78,21 +77,21 @@ export default {
             renderer:null,
             axis:null,
             }
-    },
+        },
     methods:{
         
         init()
         {
-            
             this.AddScene();
             this.AddCamera();
             this.AddRender();
+            this.AddListener();
             this.AddOrbitControls();
+            this.AddAxis();
+            this.AddModel();
             this.Addfloor();
-            this.Addlight()
-    
+            this.Addlight();
             this.animate();
-            
         },
          
         AddScene()
@@ -117,10 +116,61 @@ export default {
             document.getElementById("webGL_container").appendChild(this.renderer.domElement)
         },
 
-        AddOrbitControls()
-        {
+        AddListener(){
+            
+            window.addEventListener( 'resize', ()=>{
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize( window.innerWidth, window.innerHeight ); 
+            }, false );
+        },
+
+        AddOrbitControls(){
             var OrbitControls = require('three-orbit-controls')(THREE);
             var obcontrol = new OrbitControls(this.camera,this.renderer.domElement);
+        },
+
+        AddModel(){
+            var loader = new STLLoader();
+            loader.load('../../static/models/set.stl',(geometry)=>{
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
+                var mesh = new THREE.Mesh( geometry, material );
+                mesh.rotation.x = -Math.PI/2
+                mesh.rotation.z = Math.PI/2
+                mesh.scale.set(5,5,5);
+                this.scene.add(mesh);
+            })
+            var loader = new STLLoader();
+            loader.load('../../static/models/eyepiece_holder.stl',(geometry)=>{
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
+                var mesh = new THREE.Mesh( geometry, material );
+                mesh.rotation.x = -Math.PI/2
+                mesh.rotation.z = Math.PI/2
+                mesh.scale.set(5,5,5);
+                this.scene.add(mesh);
+                mesh.name = 'eyepiece_holder';
+            })
+            var loader = new STLLoader();
+            loader.load('../../static/models/collimator.stl',(geometry)=>{
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
+                var mesh = new THREE.Mesh( geometry, material );
+                mesh.rotation.x = -Math.PI/2
+                mesh.rotation.z = Math.PI/2
+                mesh.scale.set(5,5,5);
+                this.scene.add(mesh);
+            })
+            var loader = new STLLoader();
+            loader.load('../../static/models/eyepiece.stl',(geometry)=>{
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
+                var mesh = new THREE.Mesh( geometry, material );
+                mesh.rotation.x = -Math.PI/2
+                mesh.rotation.z = Math.PI/2
+                mesh.scale.set(5,5,5);
+                this.scene.add(mesh);
+                mesh.name = 'eyepiece';
+                
+            })
+            
         },
 
         AddAxis()
@@ -145,6 +195,7 @@ export default {
             this.floor.position.z=0;
             this.scene.add(this.floor);
         },
+
         LoadTexture(src,repeatx,repeaty){
             var floorMat = new THREE.MeshBasicMaterial( {
                 color: 0xffffff,
@@ -162,30 +213,26 @@ export default {
             return floorMat
         },
         
-        
         Addlight()
         {
-            var bulblight=[];
-            for(var i=0;i<=5;i++)
-            {
-                bulblight[i]=new THREE.PointLight( 0xffffff, 3, 100, 1 );
-            }
-            bulblight[0].position.set(50,-50,80)
-            bulblight[1].position.set(50,50,80)
-            bulblight[2].position.set(-50,-50,80)
-            bulblight[3].position.set(-50,50,80)
-            bulblight[4] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            bulblight[4].position.set(200,0,50)
-            bulblight[5] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            bulblight[5].position.set(300,-90,0)
-            this.scene.add(bulblight[0])
-            this.scene.add(bulblight[1])
-            this.scene.add(bulblight[2])
-            this.scene.add(bulblight[3])
-            this.scene.add(bulblight[4])
-            this.scene.add(bulblight[5])
+            var geometry=new THREE.SphereGeometry(3,30,30);
+            var material = new THREE.MeshBasicMaterial({color:0xB3DD});
+            var mesh = new THREE.Mesh(geometry,material);
+            this.scene.add(mesh);
+            mesh.position.set(-200,-200,200);
+            var bulblight=new THREE.PointLight( 0xffffff);
+            bulblight.position.set(-200,-200,200);
+            this.scene.add(bulblight);
+
         },
          
+        AddAxis()
+        {
+            //x红 z蓝 y绿
+            this.axis=new THREE.AxesHelper(200);
+            this.scene.add(this.axis);
+        },
+
         animate() 
         {   
             this.renderer.render( this.scene, this.camera );
@@ -234,9 +281,6 @@ export default {
         },
         mounted(){
             this.init();
-            // this.myChart=this.$echarts.init(document.getElementById('myecharts'));
-            // this.myChart1=this.$echarts.init(document.getElementById('myecharts1'));
-            // this.myChart2=this.$echarts.init(document.getElementById('myecharts2'));
         },
         destroyed()
         {

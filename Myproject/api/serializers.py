@@ -1,11 +1,9 @@
 from rest_framework import serializers
-from rest_framework.reverse import reverse
 from user_information import models as models1
 from download import models as models2
 from encyclopedia import models as models4
 from exercise import models as exercisemodel
 from news import models as newsmodel
-from rest_framework_jwt.settings import api_settings
 # Create your views here.
 
 
