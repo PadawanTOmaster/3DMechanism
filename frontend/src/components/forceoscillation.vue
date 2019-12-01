@@ -408,7 +408,7 @@ export default {
                 this.polegroup_rotation += this.thetaleft-newlefttheta
                 this.rodmesh.rotateZ(this.rodtheta-newrodtheta)
                 this.rodmesh_rotation += this.rodtheta-newrodtheta
-                this.rodtheta=newrodtheta
+                this.rodtheta = newrodtheta
                 this.group_trans.rotateZ(dt * this.powerw)
                 this.group_trans_rotation += dt*this.powerw
                 this.rodmesh.position.set(xmid,ymid,60)
@@ -832,6 +832,8 @@ export default {
                 //杆件回正
                 {
                     this.rodmesh.rotateZ(-this.rodmesh_rotation)
+                    this.rodtheta = 0;
+                    this.thetaright = -Math.PI/2;
                     this.group_trans.rotateZ(-this.group_trans_rotation)
                     this.polegroup.rotateZ(-this.polegroup_rotation)
                     this.polegroup_rotation=0

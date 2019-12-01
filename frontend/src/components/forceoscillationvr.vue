@@ -840,6 +840,8 @@ export default {
             else if( this.controls.vibration_type == '受迫振动'){
                 //杆件回正
                 {
+                    this.rodtheta = 0;
+                    this.thetaright = -Math.PI/2;
                     this.rodmesh.rotateZ(-this.rodmesh_rotation)
                     this.group_trans.rotateZ(-this.group_trans_rotation)
                     this.polegroup.rotateZ(-this.polegroup_rotation)
