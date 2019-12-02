@@ -6,7 +6,7 @@ export default {
 
   },
   mounted(){
-    this.$router.push('Homepage');
+    this.$router.push('threed');
   }
 }
 </script>

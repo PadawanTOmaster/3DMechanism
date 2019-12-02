@@ -1,6 +1,6 @@
 <template>
 <div style="background-color:#297fb8;min-height:100vh;">
-<Topbar activeindex='2'></Topbar>
+<!-- <Topbar activeindex='2'></Topbar> -->
 <div style="height:50px;"></div>
 <el-row type='flex' justify='center'>
   <el-col :span='20'>

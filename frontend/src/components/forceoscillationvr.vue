@@ -24,7 +24,8 @@
     </div>
     <el-card
     v-show='showtable'
-    :body-style="{ padding: '5px' }"
+    style="margin-top:50px"
+    :body-style="{ padding:'5px' }"
     class="container"
     >
         <div slot="header" class="clearfix">
@@ -61,10 +62,26 @@
         </el-table-column>
     </el-table> 
     </el-card>
-    <div style="z-index:1000;position:absolute;left:20px;top:100px;" v-show="showGraphs">
+
+    <div style="z-index:1000;position:absolute;left:50px;top:80px;color:white;font-weight:bold;
+    text-align:left;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;">
+        <div>振幅:{{controls.amplitude}}°</div>
+        <div style="height:10px;"></div>
+        <div>摆轮周期:{{T.toFixed(3)}}秒</div>
+        <div style="height:10px;"></div>
+        <div v-if="controls.vibration_type=='受迫振动'">
+            <div>电机周期:{{(1/controls.powerv*60).toFixed(3)}}秒</div>
+            <div style="height:10px;"></div>
+            <div>摆轮电机相位差:{{deltaphi.toFixed(1)}}°</div> 
+        </div>
+    </div>
+
+    <div style="z-index:1000;position:absolute;left:20px;top:200px;" v-show="showGraphs">
         <el-container>
             <el-main>
                 <div id="echarts1" style="width:450px;height:300px;"></div>
+                <div id="echarts2" style="width:450px;height:300px;"></div>
+
             </el-main>
         </el-container>
     </div>
@@ -112,10 +129,9 @@
 <script>
 import * as THREE from 'three'
 import dat from 'dat.gui'
-import {ViveController} from "three/examples/jsm/vr/ViveController.js"
-import { WEBVR } from 'three/examples/jsm/vr/WebVR.js';
 import {MTLLoader, OBJLoader} from 'three-obj-mtl-loader'
 import GLTFLoader from 'three-gltf-loader';
+import { WEBVR } from 'three/examples/jsm/vr/WebVR.js';
 import {Lensflare , LensflareElement} from '@zosma/three-lensflare-ts'
 export default {
     data(){
@@ -136,7 +152,16 @@ export default {
             show2:true,
             slidertype:false,
             button1type:false,
-            controls:null,//GUI界面
+            controls:{
+                vibration_type:null,//振动类别
+                // damping:false,
+                // power:false,
+                beta:0,
+                theta_degree:0,//初始角度为0
+                powerv:0,//电机转速 this.wf/2/Math.PI-0.1
+                phi0:0,//初相位
+                amplitude:'0',
+            },//GUI界面
             floor:null,
             plate180:null,
             cylindergroup:null,
@@ -158,6 +183,7 @@ export default {
             w_last:0,
             T:0,//周期
             wf:0,//固有频率
+            wff:0,//阻尼频率
             powerw:0,
             m:0,
             t:0,
@@ -167,7 +193,8 @@ export default {
             theta1:0,
             theta2:0,
             alpha:0,
-            phase:Math.PI/2,//相位
+            Phi:0,//相位
+            deltaphi:0,
             maxtheta1:170,
             mintheta1:-170,
             theta_end:0,
@@ -206,9 +233,12 @@ export default {
             polegroup_rotation:0,
             rodmesh_rotation:0,
             group_trans_rotation:0,
+            group_trans_rotation_add:0,
             openflash:0,
-            plate180graph_array:[],
-            powergraph_array:[],
+            plate180graph_array:[0],
+            powergraph_array:[0],
+            plate180graph_array2:[0],
+            powergraph_array2:[0],
             T10:0,
             }
     },
@@ -219,11 +249,11 @@ export default {
             this.T = Math.random()*(1.62-1.55)+1.55
             this.damping = Math.random()*0.1 //查阻尼系数
             this.wf = 2*Math.PI/this.T//固有频率
-            this.m=170/180*Math.PI*2*this.wf*0.0543
+            this.m=150/180*Math.PI*2*this.wf*0.253
             this.last_powerv = this.wf/2/Math.PI-0.1
             this.addScene();
-            this.addRender();
             this.addCamera();
+            this.addRender();
             this.addFloor();
             this.add180();
             this.addCylinder();
@@ -236,17 +266,12 @@ export default {
             this.addStand()
             this.addLight()
             //X red Z blue Y green	
-            this.addAxis();
+            //this.addAxis();
             this.addGui();
             this.addGui_group1();
             this.addListener();
-            window.addEventListener( 'resize', this.onWindowResize, false );
-            this.renderer.setAnimationLoop(this.animate);    
-        },
-        onWindowResize() {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize( window.innerWidth, window.innerHeight );
+            this.renderer.setAnimationLoop(this.animate);             
+
         },
         animate() 
         {    
@@ -333,6 +358,7 @@ export default {
                 this.changeGateColor();
                 //table
                 if(this.t-this.count*this.T<0.1 && this.t-this.count*this.T>0){
+                    this.controls.amplitude = parseInt(Math.abs(this.theta_end)*180/Math.PI)+'';
                     if(this.showtable == true && this.tableData.length<10 ){
                         this.tableData.push({id: this.tableData.length+1,A:parseInt(Math.abs(this.theta_end)*180/Math.PI)})
                         this.T10+=dt*40;
@@ -346,44 +372,102 @@ export default {
                 this.addHelix(6.5*Math.PI,-Math.PI/2+this.theta_end)
             }
             else if(this.controls.vibration_type == '受迫振动' && this.button1type==true && this.is_pause!=true){
-                this.powerw=2*Math.PI*this.controls.powerv
-               
-                var Phi=Math.atan(-2*this.controls.beta*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))+Math.PI/2
-                this.theta2 = this.m/Math.sqrt(Math.pow(this.wf*this.wf-this.powerw*this.powerw,2)+4*this.controls.beta*this.controls.beta*this.powerw*this.powerw)
-                //theta2振幅
-                this.controls.amplitude = parseInt(this.theta2*180/Math.PI)+''
-                var dt = this.T/40
-                var wwf = Math.sqrt(this.wf*this.wf-this.controls.beta*this.controls.beta) 
+
                 if(this.last_powerv!=this.controls.powerv || this.t == 0){
+                    this.plate180graph_array=[this.theta_end*180/Math.PI];
+                    this.powergraph_array=[Math.sin(this.thetaright+Math.PI/2)*100];
+                    this.last_powerv = this.controls.powerv 
                     this.t = 0 
-                    this.alpha = Math.atan(-(this.w_last+this.powerw*this.theta2*Math.sin(Phi))/wwf/(this.theta_last-this.theta2*Math.cos(Phi)))
-                    this.theta1 = (this.theta_last-this.theta2*Math.cos(Phi))/Math.cos(this.alpha)
+                    //输入的电机频率是转速n *2pi变成omiga
+                    this.powerw=2*Math.PI*this.controls.powerv/60   
+                    //计算、调整相位差
+                    this.Phi = Math.atan(-2*this.controls.beta*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
+                    if(this.Phi > 0)this.Phi -= Math.PI
+                    this.Phi += this.thetaright+Math.PI/2   //中途改变电机转速时 要补上初相位
+                    //console.log(this.Phi*180/Math.PI)
+
+                    this.wwf = Math.sqrt(this.wf*this.wf-this.controls.beta*this.controls.beta)
+                    
+                    this.theta2 = this.m/Math.sqrt(Math.pow(this.wf*this.wf-this.powerw*this.powerw,2)+4*this.controls.beta*this.controls.beta*this.powerw*this.powerw)
+                    
+                    var tmp = this.theta_last - this.theta2 * Math.sin(this.Phi)
+
+                    this.alpha = Math.atan(-(this.w_last+this.controls.beta*tmp-this.powerw*this.theta2*Math.cos(this.Phi))/this.wwf/tmp)
+                    
+                    this.theta1 = tmp/Math.cos(this.alpha)
+                    if(this.theta1 < 0)
+                    {
+                        this.theta1 = -this.theta1
+                        this.alpha = this.alpha + Math.PI
+                    }
                 }
+                
+                var dt = this.T/40
                 this.t+=dt
                 
-                this.theta_end = this.theta1*Math.exp(-this.controls.beta*this.t)*Math.cos(wwf*this.t+this.alpha) + this.theta2*Math.cos(this.powerw*this.t+Phi) 
-                this.changeGateColor();
-                var dtheta=Math.PI-Math.abs(wwf*this.t+this.alpha-this.powerw*this.t-Phi)              
-                this.controls.amplitude = parseInt(Math.sqrt(this.theta1*Math.exp(-this.controls.beta*this.t*2)*this.theta1+this.theta2*this.theta2-2*this.theta1*Math.exp(-this.controls.beta*this.t)*this.theta2*Math.cos(dtheta))*180/Math.PI)
+                this.theta_end = this.theta2*Math.sin(this.powerw*this.t+this.Phi) + this.theta1*Math.exp(-this.controls.beta*this.t)*Math.cos(this.wwf*this.t+this.alpha) 
                 var thetabuf = this.theta_end - this.theta_last
 
+                //利用向量平行四边形原理计算实时振幅
+                var dtheta=Math.PI-Math.abs(this.wwf*this.t+this.alpha-this.powerw*this.t-this.Phi)              
+                this.controls.amplitude = parseInt(Math.sqrt(this.theta1*Math.exp(-this.controls.beta*this.t*2)*this.theta1+this.theta2*this.theta2-2*this.theta1*Math.exp(-this.controls.beta*this.t)*this.theta2*Math.cos(dtheta))*180/Math.PI)
+                
+                //计算理论相位差
+                var phi = Math.atan(-2*this.controls.beta*this.powerw/(this.wf*this.wf-this.powerw*this.powerw))
+                if(phi > 0) phi -= Math.PI
+                phi=-phi
+                console.log(phi*180/Math.PI)
+
+                //调整相位差精度
+                if(this.theta_end*this.theta_last<0 && this.group_trans_rotation < phi && this.group_trans_rotation + dt*this.powerw >= phi)
+                {
+                    //console.log(this.theta_last*180/Math.PI)
+                    //console.log(this.theta_end*180/Math.PI)
+                    console.log(this.group_trans_rotation*180/Math.PI)
+                    var buf = phi-this.group_trans_rotation
+                    this.group_trans_rotation += buf
+                    this.group_trans.rotateZ(buf)
+                    this.deltaphi = (this.group_trans_rotation)*180/Math.PI;
+                    this.group_trans_rotation_add = dt*this.powerw - buf
+                }
+                else 
+                {
+                    this.group_trans_rotation += dt*this.powerw + this.group_trans_rotation_add
+                    if(this.theta_end*this.theta_last<0){
+                        this.deltaphi = (this.group_trans_rotation)*180/Math.PI;
+                    }
+                    this.group_trans.rotateZ(dt * this.powerw + this.group_trans_rotation_add)
+                    this.group_trans_rotation_add = 0
+                }
+                if(this.group_trans_rotation > Math.PI)this.group_trans_rotation -= Math.PI
+                
+                //闪光灯闪烁点亮标记
                 if(this.theta_end*this.theta_last<0 && this.openflash == 1){
+                    console.log(this.group_trans_rotation*180/Math.PI)
                     this.changeLightColor(0xc4342d, 0xc4342d)
                 }
                 else this.changeLightColor(0x000000, 0x424242)
-                this.theta_last = this.theta_end
-                this.w_last = -this.controls.beta*this.theta1*Math.exp(-this.controls.beta*this.t)*Math.cos(wwf*this.t+this.alpha)
-                              -wwf*this.theta1*Math.exp(-this.controls.beta*this.t)*Math.sin(wwf*this.t+this.alpha)
-                              -this.powerw*this.theta2*Math.sin(this.powerw*this.t+Phi)
 
+                this.changeGateColor();
+                
+                this.theta_last = this.theta_end
+                this.w_last = -this.controls.beta*this.theta1*Math.exp(-this.controls.beta*this.t)*Math.cos(this.wwf*this.t+this.alpha)
+                              -this.wwf*this.theta1*Math.exp(-this.controls.beta*this.t)*Math.sin(this.wwf*this.t+this.alpha)
+                              +this.powerw*this.theta2*Math.cos(this.powerw*this.t+this.Phi)
+                
                 //pole
                 this.thetaright += dt * this.powerw
-                this.plate180graph_array.push(this.theta_end*180/Math.PI)
-                this.powergraph_array.push(100*Math.cos(this.thetaright-parseInt(this.thetaright/(2*Math.PI))*2*Math.PI))
-                if(this.plate180graph_array.length>120){
-                    this.plate180graph_array.shift();
-                    this.powergraph_array.shift();
+                if(this.plate180graph_array.length<600){
+                    this.plate180graph_array.push(this.theta_end*180/Math.PI)
+                    this.powergraph_array.push(Math.sin(this.thetaright+Math.PI/2)*100)
                 }
+                this.plate180graph_array2.push(this.theta_end*180/Math.PI)
+                this.powergraph_array2.push(Math.sin(this.thetaright+Math.PI/2)*100)
+                if(this.plate180graph_array2.length>600){
+                    this.plate180graph_array2.shift()
+                    this.powergraph_array2.shift()
+                }
+                
                 var xright=300+10*Math.cos(this.thetaright)
                 var yright=-80+10*Math.sin(this.thetaright)
                 
@@ -409,16 +493,17 @@ export default {
                 var yleft=finalY1
                 var xmid=(xleft+xright)/2
                 var ymid=(yleft+yright)/2
+
                 var newrodtheta=-Math.atan((yright-yleft)/(xright-xleft))
                 var newlefttheta=Math.acos(xleft/Math.sqrt(xleft*xleft+yleft*yleft))
                 this.polegroup.rotateZ(this.thetaleft-newlefttheta)
                 this.polegroup_rotation += this.thetaleft-newlefttheta
+               
                 this.rodmesh.rotateZ(this.rodtheta-newrodtheta)
                 this.rodmesh_rotation += this.rodtheta-newrodtheta
-                this.rodtheta=newrodtheta
-                this.group_trans.rotateZ(dt * this.powerw)
-                this.group_trans_rotation += dt*this.powerw
+                this.rodtheta = newrodtheta
                 this.rodmesh.position.set(xmid,ymid,60)
+
                 this.thetaleft=newlefttheta
                 this.plate180.rotateY(thetabuf)
                 this.scene.remove(this.stringmesh)
@@ -426,10 +511,9 @@ export default {
                 //绘图
                 {
                     this.showGraphs=true
-                    this.echarts1.setOption(this.setEcharts(this.plate180graph_array,this.powergraph_array,'电机摆轮相位曲线'));
-                    //this.echarts2.setOption(this.setEcharts(this.Phi1array,this.Phi2array,this.Phi3array,'相频特征曲线'))  
+                    this.echarts1.setOption(this.setEcharts(this.plate180graph_array,this.powergraph_array,'相位平衡阶段曲线'));
+                    this.echarts2.setOption(this.setEcharts(this.plate180graph_array2,this.powergraph_array2,'电机摆轮相位曲线'))  
                 }
-                this.last_powerv = this.controls.powerv;
             }
             this.renderer.render( this.scene, this.camera );
         },
@@ -444,6 +528,11 @@ export default {
             user.add( this.camera );
             user.position.set(100,-10,700)
             this.scene.add(user);
+        },
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize( window.innerWidth, window.innerHeight );
         },
         addRender()
         {
@@ -467,25 +556,32 @@ export default {
         },
         addLight()
         {
-            var bulblight=[];
-            for(var i=0;i<=5;i++)
-            {
-                bulblight[i]=new THREE.PointLight( 0xffffff, 3, 100, 1 );
-            }
-            bulblight[0].position.set(50,-50,80)
-            bulblight[1].position.set(50,50,80)
-            bulblight[2].position.set(-50,-50,80)
-            bulblight[3].position.set(-50,50,80)
-            bulblight[4] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            bulblight[4].position.set(200,0,50)
-            bulblight[5] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            bulblight[5].position.set(300,-90,0)
-            this.scene.add(bulblight[0])
-            this.scene.add(bulblight[1])
-            this.scene.add(bulblight[2])
-            this.scene.add(bulblight[3])
-            this.scene.add(bulblight[4])
-            this.scene.add(bulblight[5])
+            var spotlight1 = new THREE.SpotLight(0xffffff, 3,400,Math.PI/3)
+            spotlight1.position.set(0,0,350)
+            var spotlight2 = new THREE.SpotLight(0xffffff, 3,400,Math.PI/3)
+            spotlight2.position.set(420,-80,350)
+            this.scene.add(spotlight1);
+            this.scene.add(spotlight2);
+
+            // var bulblight=[];
+            // for(var i=0;i<=5;i++)
+            // {
+            //     bulblight[i]=new THREE.PointLight( 0xffffff, 3, 100, 1 );
+            // }
+            // bulblight[0].position.set(50,-50,80)
+            // bulblight[1].position.set(50,50,80)
+            // bulblight[2].position.set(-50,-50,80)
+            // bulblight[3].position.set(-50,50,80)
+            // bulblight[4] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
+            // bulblight[4].position.set(200,0,50)
+            // bulblight[5] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
+            // bulblight[5].position.set(300,-90,0)
+            // this.scene.add(bulblight[0])
+            // this.scene.add(bulblight[1])
+            // this.scene.add(bulblight[2])
+            // this.scene.add(bulblight[3])
+            // this.scene.add(bulblight[4])
+            // this.scene.add(bulblight[5])
         },
         
         addFloor()
@@ -507,10 +603,10 @@ export default {
                 return floorMat
             };
             var boxTexture=[]
-            boxTexture[3]=LoadTexture("../../static/images/hardwood2_diffuse.jpg",8,8)
+            boxTexture[3]=LoadTexture("../../static/images/woodtexture.jpg",8,8)
             for(var i=0;i<=5;i++){
                 if(i==3) continue;
-                boxTexture[i]=LoadTexture("../../static/images/woodtexture.jpg",2,2)
+                boxTexture[i]=LoadTexture("../../static/images/hardwood2_diffuse.jpg",1,1)
             }
             var boxH = 5000
             var box=new THREE.BoxBufferGeometry(boxH,boxH,boxH)
@@ -661,7 +757,7 @@ export default {
                 loadermodel.load('../../static/models/plate1.obj',(obj)=>{
                 obj.material=mtl
                 obj.rotation.x =Math.PI/2
-                obj.position.set(300,-70,0)
+                obj.position.set(300,-60,0)
                 this.plategroup.add(obj)
                 })
             })
@@ -678,9 +774,9 @@ export default {
             this.platepolegroup.add(cylindermesh2)
             cylindermesh2.position.set(0,10,0)
             this.platepolegroup.rotation.x = Math.PI/2
-            this.platepolegroup.position.set(300,-90,0);
+            this.platepolegroup.position.set(300,-80,0);
             this.plategroup.add(this.platepolegroup)
-            this.plategroup.position.set(0,10,30)
+            this.plategroup.position.set(0,0,30)
             this.scene.add(this.plategroup)
         },
         addRod(){
@@ -838,22 +934,33 @@ export default {
                 }   
             }
             else if( this.controls.vibration_type == '受迫振动'){
+                this.deltaphi = 0;
                 //杆件回正
                 {
+                    this.rodtheta = 0
+                    this.thetaright = -Math.PI/2
+                    this.rodmesh.rotateZ(-this.rodmesh_rotation)
+                    this.rodmesh_rotation = 0;
                     this.rodtheta = 0;
                     this.thetaright = -Math.PI/2;
-                    this.rodmesh.rotateZ(-this.rodmesh_rotation)
                     this.group_trans.rotateZ(-this.group_trans_rotation)
+                    this.group_trans_rotation=0
+
                     this.polegroup.rotateZ(-this.polegroup_rotation)
                     this.polegroup_rotation=0
-                    this.rodmesh_rotation=0
-                    this.group_trans_rotation=0
-                    this.rodmesh.position.set(150,-90,60)
+                    this.thetaleft = Math.PI/2
                 }
                 //gui回到原样
                 {
-                    this.controls.powerv = this.wf/2/Math.PI-0.1
+                    this.controls.powerv = 35
                     this.enabledGuiGroup3()
+                }
+                //清空图
+                {
+                    this.plate180graph_array=[0];
+                    this.powergraph_array=[0];
+                    this.plate180graph_array2=[0];
+                    this.powergraph_array2=[0];
                 }
                 {
                     this.AWW0 = new Map();
@@ -871,9 +978,9 @@ export default {
                 vibration_type:'自由振动',//振动类别
                 // damping:false,
                 // power:false,
-                beta:0.0543,
+                beta:0.053,
                 theta_degree:0,//初始角度为0
-                powerv:this.wf/2/Math.PI,//电机频率 this.wf/2/Math.PI-0.1
+                powerv:35,//电机频率 this.wf/2/Math.PI-0.1
                 phi0:Math.PI/2,//初相位
                 amplitude:'0',
                 measure:()=>{
@@ -890,8 +997,6 @@ export default {
         addGui_group1(){
             this.gui_group1 = this.gui.addFolder("自由振动");
             this.theta_degree = this.gui_group1.add(this.controls,"theta_degree",-170,170).name("摆轮初始角度(°)").listen();
-            this.amplitude = this.gui_group1.add(this.controls,"amplitude","0").name("振幅").listen()
-            this.amplitude.domElement.style.pointerEvents = "none"
             this.gui_group1.open();
         },
         disabledGuiGroup1(){
@@ -905,7 +1010,7 @@ export default {
         addGui_group2(){
             this.gui_group2 = this.gui.addFolder("阻尼振动");
             this.theta_degree = this.gui_group2.add(this.controls,"theta_degree",-170,170).name("摆轮初始角度(°)").listen();
-            this.beta = this.gui_group2.add(this.controls,"beta",{'阻尼1':0.0543,'阻尼2':0.0554,'阻尼3':0.0571}).name('阻尼系数');
+            this.beta = this.gui_group2.add(this.controls,"beta",{'阻尼1':0.093,'阻尼2':0.095,'阻尼3':0.097}).name('阻尼系数');
             this.button_gui = this.gui_group2.add(this.controls,'measure').name('点击此处测量振幅').listen();
             this.gui_group2.open();
         },
@@ -933,10 +1038,8 @@ export default {
         },
         addGui_group3(){
             this.gui_group3 = this.gui.addFolder("受迫振动");
-            this.gui_group3.add(this.controls,"powerv",this.wf/2/Math.PI-0.1,this.wf/2/Math.PI+0.1).name("电机频率").listen();
-            this.beta = this.gui_group3.add(this.controls,"beta",{'阻尼1':0.0543,'阻尼2':0.0554,'阻尼3':0.0571}).name('阻尼系数').listen();
-            this.amplitude = this.gui_group3.add(this.controls,"amplitude","0").name("振幅").listen()
-            this.amplitude.domElement.style.pointerEvents = "none"
+            this.gui_group3.add(this.controls,"powerv",30,45).name("电机转速").listen();
+            this.beta = this.gui_group3.add(this.controls,"beta",{'阻尼1':0.253,'阻尼2':0.255,'阻尼3':0.257}).name('阻尼系数').listen();
             this.button_gui = this.gui_group3.add(this.controls,'flash').name('开启闪光灯').listen();
             this.gui_group3.open();
         },
@@ -1010,14 +1113,14 @@ export default {
                     data: array1,
                     type: 'line',
                     smooth: true,
-                    color:'blue'
+                    color:'white'
                 },
                 {
                     name:'电机',
                     data: array2,
                     type: 'line',
                     smooth: true,
-                    color:'yellow'
+                    color:'#2f5ee1'
                 }]
             };
             return option;
@@ -1025,8 +1128,9 @@ export default {
         },
         mounted(){
             this.init();
-            // this.myChart=this.$echarts.init(document.getElementById('myecharts'));
             this.echarts1=this.$echarts.init(document.getElementById('echarts1'));
+            this.echarts2=this.$echarts.init(document.getElementById('echarts2'));
+
         },
         destroyed()
         {
