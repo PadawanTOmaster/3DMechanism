@@ -7,6 +7,13 @@
             <el-button @click="show2=!show2" type="success" round>看讲解</el-button> -->
         </div>
     </el-row>
+
+    <div style="z-index:1000;position:absolute;left:50px;top:80px;color:white;font-weight:bold;
+    text-align:left;width:300px">
+        <span class="demonstration">目镜旋转角度(°) 从-150°到150°</span>
+        <el-slider v-model="rotationAngle" :max=maxAngle :min=minAngle></el-slider>
+    </div>
+
     <div id="webGL_container" style="position:absolute;z-index:0">
     </div>
     
@@ -76,6 +83,15 @@ export default {
             camera:null,
             renderer:null,
             axis:null,
+            rotationAngle:0,
+            maxAngle:150,
+            minAngle:-150,
+            eyepieceSet:null,
+            eyepiece:null,
+            set:null,
+            collimator:null,
+            eyepiecePotGroup:null,
+            rotationInit:0
             }
         },
     methods:{
@@ -91,6 +107,7 @@ export default {
             this.AddModel();
             this.Addfloor();
             this.Addlight();
+            //this.AddLocatingSpot();
             this.animate();
         },
          
@@ -129,46 +146,97 @@ export default {
             var OrbitControls = require('three-orbit-controls')(THREE);
             var obcontrol = new OrbitControls(this.camera,this.renderer.domElement);
         },
+        AddLocatingSpot(){
+            //本函数用来添加定位点
+            var geometry1=new THREE.SphereGeometry(5,5,5);
+            var material1 = new THREE.MeshBasicMaterial({color:0xB3DD,opacity:0,transparent:true});
+            var mesh1 = new THREE.Mesh(geometry1,material1);
+            this.scene.add(mesh1);
+            mesh1.position.copy(this.set.position);
+            mesh1.position.x -= 238;
+            mesh1.position.y -=105;
+            mesh1.name = 'spot1';
 
+            var geometry3=new THREE.SphereGeometry(5,5,5);
+            var material3 = new THREE.MeshBasicMaterial({color:0xB3DD,opacity:0,transparent:true});
+            var mesh3 = new THREE.Mesh(geometry3,material3);
+            this.scene.add(mesh3);
+            mesh3.position.copy(mesh1.position);
+            mesh3.position.x += 800;
+            mesh3.name = 'spot3';
+
+            var material = new THREE.LineDashedMaterial({color:0xb91913});
+            var geometry = new THREE.Geometry();
+            geometry.vertices.push(mesh1.position);
+            geometry.vertices.push(mesh3.position);
+            var line = new THREE.Line(geometry, material);
+            this.scene.add(line);
+
+        },
         AddModel(){
+            var x = 150;
+            var z = -100;
+            //4个模型都向左挪150,向后挪-100
+            var loader = new STLLoader();
+            //目镜架
+            loader.load('../../static/models/eyepiece_holder.stl',(geometry)=>{
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5,opacity:0.5,transparent:true} );
+                this.eyepieceSet = new THREE.Mesh( geometry, material );
+                this.eyepieceSet.position.set(x-240,-238,z);
+                this.eyepieceSet.rotation.x = -Math.PI/2
+                this.eyepieceSet.rotation.z = Math.PI/2;
+                this.eyepieceSet.scale.set(5,5,5);
+                this.eyepieceSet.name = 'eyepieceSet';
+                this.scene.add(this.eyepieceSet);
+            })
+            /****************************************/
+            var loader = new STLLoader();
+            //目镜
+            loader.load('../../static/models/eyepiece.stl',(geometry)=>{
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5,opacity:0.5,transparent:true} );
+                this.eyepiece = new THREE.Mesh( geometry, material );
+                this.eyepiece.scale.set(5,5,5);
+                this.eyepiece.name = 'eyepiece';  
+
+                var geometry2=new THREE.SphereGeometry(5,5,5);
+                var material2 = new THREE.MeshBasicMaterial({color:0xB3DD,opacity:0,transparent:true});
+                var mesh2 = new THREE.Mesh(geometry2,material2);
+                mesh2.position.y += 500;
+                mesh2.position.z +=135;
+                mesh2.name = 'spot2';
+                
+                this.eyepiecePotGroup = new THREE.Group();
+                this.eyepiecePotGroup.add(mesh2);
+                this.eyepiecePotGroup.add(this.eyepiece);
+                this.eyepiecePotGroup.rotation.set(-Math.PI/2,0,Math.PI/2);
+                this.eyepiecePotGroup.position.set(x-240,-238,z);
+                
+                this.scene.add(this.eyepiecePotGroup);
+                
+            })
+            /****************************************/
             var loader = new STLLoader();
             loader.load('../../static/models/set.stl',(geometry)=>{
-                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
-                var mesh = new THREE.Mesh( geometry, material );
-                mesh.rotation.x = -Math.PI/2
-                mesh.rotation.z = Math.PI/2
-                mesh.scale.set(5,5,5);
-                this.scene.add(mesh);
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5,opacity:0.5,transparent:true} );
+                this.set = new THREE.Mesh( geometry, material );
+                this.set.position.set(x,0,z);
+                this.set.rotation.x = -Math.PI/2;
+                this.set.rotation.z = Math.PI/2;
+                this.set.scale.set(5,5,5);
+                this.scene.add(this.set);
+                this.AddLocatingSpot();
             })
+            /****************************************/
             var loader = new STLLoader();
-            loader.load('../../static/models/eyepiece_holder.stl',(geometry)=>{
-                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
-                var mesh = new THREE.Mesh( geometry, material );
-                mesh.rotation.x = -Math.PI/2
-                mesh.rotation.z = Math.PI/2
-                mesh.scale.set(5,5,5);
-                this.scene.add(mesh);
-                mesh.name = 'eyepiece_holder';
-            })
-            var loader = new STLLoader();
+            //平行光管
             loader.load('../../static/models/collimator.stl',(geometry)=>{
-                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
-                var mesh = new THREE.Mesh( geometry, material );
-                mesh.rotation.x = -Math.PI/2
-                mesh.rotation.z = Math.PI/2
-                mesh.scale.set(5,5,5);
-                this.scene.add(mesh);
-            })
-            var loader = new STLLoader();
-            loader.load('../../static/models/eyepiece.stl',(geometry)=>{
-                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5} );
-                var mesh = new THREE.Mesh( geometry, material );
-                mesh.rotation.x = -Math.PI/2
-                mesh.rotation.z = Math.PI/2
-                mesh.scale.set(5,5,5);
-                this.scene.add(mesh);
-                mesh.name = 'eyepiece';
-                
+                var material = new THREE.MeshPhongMaterial( { color: 0xbebdc5,opacity:0.5,transparent:true} );
+                this.collimator = new THREE.Mesh( geometry, material );
+                this.collimator.position.set(x,0,z);
+                this.collimator.rotation.x = -Math.PI/2;
+                this.collimator.rotation.z = Math.PI/2;
+                this.collimator.scale.set(5,5,5);
+                this.scene.add(this.collimator);
             })
             
         },
@@ -215,11 +283,6 @@ export default {
         
         Addlight()
         {
-            var geometry=new THREE.SphereGeometry(3,30,30);
-            var material = new THREE.MeshBasicMaterial({color:0xB3DD});
-            var mesh = new THREE.Mesh(geometry,material);
-            this.scene.add(mesh);
-            mesh.position.set(-200,-200,200);
             var bulblight=new THREE.PointLight( 0xffffff);
             bulblight.position.set(-200,-200,200);
             this.scene.add(bulblight);
@@ -235,6 +298,22 @@ export default {
 
         animate() 
         {   
+            if(this.scene.getObjectByName('eyepieceSet')!=undefined && this.scene.getObjectByName('spot1')!=undefined && this.eyepiecePotGroup!=null){
+                this.eyepieceSet.rotation.z=Math.PI/2+this.rotationAngle*Math.PI/180;
+                this.eyepiecePotGroup.rotation.z=Math.PI/2+this.rotationAngle*Math.PI/180; 
+                if(this.eyepiecePotGroup.rotation.z!=this.rotationInit){
+                    var material = new THREE.LineDashedMaterial({color:0xb91913});
+                    var geometry = new THREE.Geometry();
+                    geometry.vertices.push(this.scene.getObjectByName('spot2').matrixWorld.getPosition());
+                    geometry.vertices.push(this.scene.getObjectByName('spot1').position);
+                    var line = new THREE.Line(geometry, material);
+                    line.name = 'line1';
+                    this.scene.remove(this.scene.getObjectByName('line1'));
+                    this.scene.add(line);
+                    this.rotationInit = this.eyepiecePotGroup.rotation.z;
+                }
+                
+            }
             this.renderer.render( this.scene, this.camera );
             requestAnimationFrame(this.animate);
         },
