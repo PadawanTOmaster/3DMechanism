@@ -554,26 +554,6 @@ export default {
             spotlight2.position.set(420,-80,350)
             this.scene.add(spotlight1);
             this.scene.add(spotlight2);
-
-            // var bulblight=[];
-            // for(var i=0;i<=5;i++)
-            // {
-            //     bulblight[i]=new THREE.PointLight( 0xffffff, 3, 100, 1 );
-            // }
-            // bulblight[0].position.set(50,-50,80)
-            // bulblight[1].position.set(50,50,80)
-            // bulblight[2].position.set(-50,-50,80)
-            // bulblight[3].position.set(-50,50,80)
-            // bulblight[4] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            // bulblight[4].position.set(200,0,50)
-            // bulblight[5] = new THREE.PointLight( 0xffffff, 3, 300, 1 )
-            // bulblight[5].position.set(300,-90,0)
-            // this.scene.add(bulblight[0])
-            // this.scene.add(bulblight[1])
-            // this.scene.add(bulblight[2])
-            // this.scene.add(bulblight[3])
-            // this.scene.add(bulblight[4])
-            // this.scene.add(bulblight[5])
         },
         
         addFloor()
